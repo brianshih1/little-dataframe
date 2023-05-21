@@ -1,0 +1,67 @@
+use std::marker::PhantomData;
+
+use arrow2::array::{Int32Array, Utf8Array};
+
+use super::{
+    types::{I32Chunked, Utf8Chunked},
+    ChunkedArray,
+};
+
+pub trait NewFrom<TItem> {
+    fn new(name: &str, v: &[TItem]) -> Self;
+
+    fn from_slice_options(name: &str, v: &[Option<TItem>]) -> Self;
+
+    #[cfg(test)]
+    fn from_lists(name: &str, lists: Vec<&[TItem]>) -> Self;
+}
+
+impl NewFrom<i32> for I32Chunked {
+    fn new(name: &str, v: &[i32]) -> Self {
+        let primitive_array = Int32Array::from_iter(v.iter().copied().map(Some));
+        ChunkedArray {
+            chunks: vec![Box::new(primitive_array)],
+            length: v.len(),
+            phantom: PhantomData,
+        }
+    }
+
+    fn from_slice_options(name: &str, v: &[Option<i32>]) -> Self {
+        todo!()
+    }
+
+    #[cfg(test)]
+    fn from_lists(name: &str, lists: Vec<&[i32]>) -> Self {
+        use crate::little_arrow::types::ArrayRef;
+
+        let primitive_arrays = lists
+            .iter()
+            .map(|list| Box::new(Int32Array::from_iter(list.iter().copied().map(Some))) as ArrayRef)
+            .collect::<Vec<_>>();
+        ChunkedArray {
+            chunks: primitive_arrays,
+            length: lists.len(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl NewFrom<&str> for Utf8Chunked {
+    fn new(name: &str, v: &[&str]) -> Self {
+        let primitive_array = Utf8Array::<i32>::from_iter(v.iter().map(|i| Some(i)));
+        ChunkedArray {
+            chunks: vec![Box::new(primitive_array)],
+            length: v.len(),
+            phantom: PhantomData,
+        }
+    }
+
+    fn from_slice_options(name: &str, v: &[Option<&str>]) -> Self {
+        todo!()
+    }
+
+    #[cfg(test)]
+    fn from_lists(name: &str, lists: Vec<&[&str]>) -> Self {
+        todo!()
+    }
+}
