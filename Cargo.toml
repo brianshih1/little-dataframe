@@ -17,3 +17,5 @@ arrow2 = { version = "0.17.1", features = [
         "compute_filter",
         "compute_if_then_else"
     ]}
+rand = "0.8.5"
+rayon = "1.7.0"

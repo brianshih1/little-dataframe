@@ -15,8 +15,8 @@ where
     B: LittleDataType,
 {
     let arr_a_single_chunk = convert_to_single_chunk(arr1);
+    debug_assert!(arr_a_single_chunk.length == 1);
     let arr_a_primitive_array = &arr_a_single_chunk.chunks[0];
-    debug_assert!(arr1.length == 1);
 
     let mut idx = 0;
     let it = arr2.chunk_length_it();
@@ -43,9 +43,9 @@ where
             arrow_array
         })
         .collect::<Vec<_>>();
-    let foo = concatenate(&list_of_arrow_array).unwrap();
+    let chunk = concatenate(&list_of_arrow_array).unwrap();
     ChunkedArray {
-        chunks: vec![foo],
+        chunks: vec![chunk],
         length: 1,
         phantom: PhantomData,
     }

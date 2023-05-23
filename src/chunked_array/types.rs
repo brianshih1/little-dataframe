@@ -31,3 +31,10 @@ impl LittleDataType for Utf8Type {
 }
 
 pub type Utf8Chunked = ChunkedArray<Utf8Type>;
+
+#[derive(Debug, Clone)]
+pub enum RawValue<'a> {
+    Boolean(bool),
+    Utf8(&'a str),
+    Int32(i32),
+}

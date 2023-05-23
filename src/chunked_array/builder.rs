@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
-use arrow2::array::{Int32Array, Utf8Array};
+use arrow2::array::{BooleanArray, Int32Array, Utf8Array};
 
 use super::{
-    types::{I32Chunked, Utf8Chunked},
+    types::{BooleanChunked, I32Chunked, Utf8Chunked},
     ChunkedArray,
 };
 
@@ -14,6 +14,27 @@ pub trait NewFrom<TItem> {
 
     #[cfg(test)]
     fn from_lists(name: &str, lists: Vec<&[TItem]>) -> Self;
+}
+
+impl NewFrom<bool> for BooleanChunked {
+    fn new(name: &str, v: &[bool]) -> Self {
+        let primitive_array = BooleanArray::from_iter(v.iter().copied().map(Some));
+
+        ChunkedArray {
+            chunks: vec![Box::new(primitive_array)],
+            length: v.len(),
+            phantom: PhantomData,
+        }
+    }
+
+    fn from_slice_options(name: &str, v: &[Option<bool>]) -> Self {
+        todo!()
+    }
+
+    #[cfg(test)]
+    fn from_lists(name: &str, lists: Vec<&[bool]>) -> Self {
+        todo!()
+    }
 }
 
 impl NewFrom<i32> for I32Chunked {

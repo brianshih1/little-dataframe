@@ -11,8 +11,14 @@ use crate::types::{DataType, LittleDataType};
 
 use self::types::{I32Chunked, Utf8Chunked};
 
+pub mod aggregate;
+mod aggregate_test;
 pub mod builder;
 pub mod filter;
+mod filter_test;
+pub mod format;
+mod iter;
+pub mod test_utils;
 pub mod types;
 pub mod utils;
 mod utils_test;
