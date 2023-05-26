@@ -18,6 +18,8 @@ pub mod filter;
 mod filter_test;
 pub mod format;
 mod iter;
+pub mod sort;
+mod sort_test;
 pub mod test_utils;
 pub mod types;
 pub mod utils;
@@ -41,10 +43,23 @@ where
     }
 
     pub fn from_chunks(chunks: Vec<ArrayRef>) -> Self {
-        ChunkedArray {
+        let mut arr = ChunkedArray {
             chunks,
-            length: 1, // TODO: Fix
+            length: 0,
             phantom: PhantomData,
-        }
+        };
+        arr.compute_len();
+        arr
+    }
+
+    pub fn compute_len(&mut self) {
+        let length = self.chunks.iter().fold(0, |acc, arr| acc + arr.len());
+        self.length = length;
+    }
+
+    pub fn null_count(&self) -> usize {
+        self.chunks
+            .iter()
+            .fold(0, |acc, arr| acc + arr.null_count())
     }
 }

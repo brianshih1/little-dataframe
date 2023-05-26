@@ -44,9 +44,11 @@ where
         })
         .collect::<Vec<_>>();
     let chunk = concatenate(&list_of_arrow_array).unwrap();
-    ChunkedArray {
+    let mut arr = ChunkedArray {
         chunks: vec![chunk],
-        length: 1,
+        length: 0,
         phantom: PhantomData,
-    }
+    };
+    arr.compute_len();
+    arr
 }

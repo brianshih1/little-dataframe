@@ -12,6 +12,8 @@ pub trait NewFrom<TItem> {
 
     fn from_slice_options(name: &str, v: &[Option<TItem>]) -> Self;
 
+    fn from_vec(name: &str, v: &[TItem]) -> Self;
+
     #[cfg(test)]
     fn from_lists(name: &str, lists: Vec<&[TItem]>) -> Self;
 }
@@ -19,10 +21,10 @@ pub trait NewFrom<TItem> {
 impl NewFrom<bool> for BooleanChunked {
     fn new(name: &str, v: &[bool]) -> Self {
         let primitive_array = BooleanArray::from_iter(v.iter().copied().map(Some));
-
+        let length = primitive_array.len();
         ChunkedArray {
             chunks: vec![Box::new(primitive_array)],
-            length: v.len(),
+            length,
             phantom: PhantomData,
         }
     }
@@ -35,14 +37,19 @@ impl NewFrom<bool> for BooleanChunked {
     fn from_lists(name: &str, lists: Vec<&[bool]>) -> Self {
         todo!()
     }
+
+    fn from_vec(name: &str, v: &[bool]) -> Self {
+        todo!()
+    }
 }
 
 impl NewFrom<i32> for I32Chunked {
     fn new(name: &str, v: &[i32]) -> Self {
         let primitive_array = Int32Array::from_iter(v.iter().copied().map(Some));
+        let length = primitive_array.len();
         ChunkedArray {
             chunks: vec![Box::new(primitive_array)],
-            length: v.len(),
+            length: length,
             phantom: PhantomData,
         }
     }
@@ -65,14 +72,19 @@ impl NewFrom<i32> for I32Chunked {
             phantom: PhantomData,
         }
     }
+
+    fn from_vec(name: &str, v: &[i32]) -> Self {
+        todo!()
+    }
 }
 
 impl NewFrom<&str> for Utf8Chunked {
     fn new(name: &str, v: &[&str]) -> Self {
         let primitive_array = Utf8Array::<i32>::from_iter(v.iter().map(|i| Some(i)));
+        let length = primitive_array.len();
         ChunkedArray {
             chunks: vec![Box::new(primitive_array)],
-            length: v.len(),
+            length,
             phantom: PhantomData,
         }
     }
@@ -83,6 +95,10 @@ impl NewFrom<&str> for Utf8Chunked {
 
     #[cfg(test)]
     fn from_lists(name: &str, lists: Vec<&[&str]>) -> Self {
+        todo!()
+    }
+
+    fn from_vec(name: &str, v: &[&str]) -> Self {
         todo!()
     }
 }

@@ -264,6 +264,7 @@ name = "little-dataframe"
 version = "0.1.0"
 dependencies = [
  "arrow2",
+ "once_cell",
  "rand",
  "rayon",
 ]
