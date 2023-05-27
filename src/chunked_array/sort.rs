@@ -41,6 +41,11 @@ impl I32Chunked {
         });
         list
     }
+
+    pub fn to_vec_options(&self) -> Vec<Option<i32>> {
+        let it = self.into_iter();
+        it.collect()
+    }
 }
 
 impl ChunkedSort for I32Chunked {
@@ -62,6 +67,12 @@ impl ChunkedSort for I32Chunked {
                 let iter = primitive_arr.iter().filter_map(|a| a.copied());
                 list.extend(iter);
             });
+            sort_list(
+                &mut list[null_count..],
+                descending,
+                |a, b| b.cmp(a),
+                |a, b| a.cmp(b),
+            );
             let mut validity = MutableBitmap::with_capacity(length);
             validity.extend_constant(null_count, false);
             validity.extend_constant(length - null_count, true);

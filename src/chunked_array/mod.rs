@@ -18,6 +18,7 @@ pub mod filter;
 mod filter_test;
 pub mod format;
 mod iter;
+mod iter_test;
 pub mod sort;
 mod sort_test;
 pub mod test_utils;

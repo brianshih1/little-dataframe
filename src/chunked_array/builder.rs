@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use arrow2::array::{BooleanArray, Int32Array, Utf8Array};
+use arrow2::array::{
+    BooleanArray, Int32Array, MutableArray, MutableBooleanArray, MutablePrimitiveArray,
+    MutableUtf8Array, Utf8Array,
+};
 
 use super::{
     types::{BooleanChunked, I32Chunked, Utf8Chunked},
@@ -29,8 +32,20 @@ impl NewFrom<bool> for BooleanChunked {
         }
     }
 
+    // TODO: Use MutableBooleanArray
     fn from_slice_options(name: &str, v: &[Option<bool>]) -> Self {
-        todo!()
+        let mut arr = MutableBooleanArray::new();
+        v.iter().copied().for_each(|a| match a {
+            Some(v) => arr.push(Some(v)),
+            None => arr.push(None),
+        });
+        let primitive_arr = arr.as_box();
+        let length = primitive_arr.len();
+        ChunkedArray {
+            chunks: vec![primitive_arr],
+            length,
+            phantom: PhantomData,
+        }
     }
 
     #[cfg(test)]
@@ -55,7 +70,18 @@ impl NewFrom<i32> for I32Chunked {
     }
 
     fn from_slice_options(name: &str, v: &[Option<i32>]) -> Self {
-        todo!()
+        let mut arr = MutablePrimitiveArray::new();
+        v.iter().copied().for_each(|a| match a {
+            Some(v) => arr.push(Some(v)),
+            None => arr.push(None),
+        });
+        let primitive_arr = arr.as_box();
+        let length = primitive_arr.len();
+        ChunkedArray {
+            chunks: vec![primitive_arr],
+            length,
+            phantom: PhantomData,
+        }
     }
 
     #[cfg(test)]
@@ -90,7 +116,18 @@ impl NewFrom<&str> for Utf8Chunked {
     }
 
     fn from_slice_options(name: &str, v: &[Option<&str>]) -> Self {
-        todo!()
+        let mut arr = MutableUtf8Array::<i32>::new();
+        v.iter().copied().for_each(|a| match a {
+            Some(v) => arr.push(Some(v)),
+            None => arr.push::<&str>(None),
+        });
+        let primitive_arr = arr.as_box();
+        let length = primitive_arr.len();
+        ChunkedArray {
+            chunks: vec![primitive_arr],
+            length,
+            phantom: PhantomData,
+        }
     }
 
     #[cfg(test)]

@@ -47,7 +47,22 @@ mod sort_i32 {
     }
 
     #[test]
-    fn sort_vec() {
+    fn sort_null_i32() {
+        let arr = ChunkedArray::from_slice_options(
+            "",
+            &vec![None, Some(12), None, Some(5), Some(8), None],
+        );
+        let sorted = arr.sort(false);
+        println!("arr: {:?}", &sorted);
+
+        assert_eq!(
+            sorted.to_vec_options(),
+            vec![None, None, None, Some(5), Some(8), Some(12)]
+        );
+    }
+
+    #[test]
+    fn sort_list_test() {
         let mut first = vec![12, 1, 5];
         sort_list(&mut first, true, |a, b| b.cmp(a), |a, b| a.cmp(b));
         assert_eq!(&first, &vec![12, 5, 1]);
