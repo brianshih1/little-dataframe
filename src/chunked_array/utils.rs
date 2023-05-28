@@ -28,7 +28,7 @@ where
         })
         .collect();
 
-    ChunkedArray::from_chunks(chunks)
+    ChunkedArray::from_chunks(&arr1.name, chunks)
 }
 
 pub fn convert_to_single_chunk<T>(chunked_array: &ChunkedArray<T>) -> ChunkedArray<T>
@@ -45,6 +45,7 @@ where
         .collect::<Vec<_>>();
     let chunk = concatenate(&list_of_arrow_array).unwrap();
     let mut arr = ChunkedArray {
+        name: chunked_array.name,
         chunks: vec![chunk],
         length: 0,
         phantom: PhantomData,

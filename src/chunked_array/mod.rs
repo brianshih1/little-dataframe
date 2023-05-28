@@ -1,3 +1,4 @@
+use smartstring::alias::String as SmartString;
 use std::iter::Map;
 use std::marker::PhantomData;
 use std::slice::Iter;
@@ -27,6 +28,7 @@ pub mod utils;
 mod utils_test;
 
 pub struct ChunkedArray<T: LittleDataType> {
+    pub name: SmartString,
     pub chunks: Vec<ArrayRef>,
     // TODO: Finalize if this is number of chunks or total number of elements
     pub length: usize,
@@ -43,8 +45,9 @@ where
         self.chunks.iter().map(|chunk| chunk.len())
     }
 
-    pub fn from_chunks(chunks: Vec<ArrayRef>) -> Self {
+    pub fn from_chunks(name: &str, chunks: Vec<ArrayRef>) -> Self {
         let mut arr = ChunkedArray {
+            name: name.into(),
             chunks,
             length: 0,
             phantom: PhantomData,

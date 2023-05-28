@@ -54,7 +54,7 @@ impl ChunkedSort for I32Chunked {
             let mut list = self.to_vec();
             sort_list(&mut list, descending, |a, b| b.cmp(a), |a, b| a.cmp(b));
             println!("List: {:?}", &list);
-            I32Chunked::new("foo", &list)
+            I32Chunked::new(&self.name, &list)
         } else {
             let length = self.length;
             let mut list = Vec::with_capacity(self.length);
@@ -81,7 +81,7 @@ impl ChunkedSort for I32Chunked {
                 list.into(),
                 validity.into(),
             );
-            I32Chunked::from_chunks(vec![Box::new(primitive_arr)])
+            I32Chunked::from_chunks(&self.name, vec![Box::new(primitive_arr)])
         }
     }
 }

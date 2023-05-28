@@ -24,6 +24,6 @@ impl ChunkedArrayFilter<I32Type> for I32Chunked {
                 filtered
             })
             .collect();
-        I32Chunked::from_chunks(chunks)
+        I32Chunked::from_chunks(&self.name, chunks)
     }
 }
