@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use self::series_trait::SeriesTrait;
 
@@ -11,3 +11,11 @@ pub mod series_trait;
 pub struct Series(pub Arc<dyn SeriesTrait>);
 
 pub struct SeriesWrap<T>(T);
+
+impl Deref for Series {
+    type Target = dyn SeriesTrait;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
