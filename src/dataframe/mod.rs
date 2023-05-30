@@ -27,4 +27,21 @@ impl DataFrame {
         // TODO: Make sure dataframe doesn't have duplicate names
         DataFrame { columns: arr }
     }
+
+    pub fn select_series(&self, selection: &Vec<String>) -> Vec<Series> {
+        selection.iter().map(|s| self.column(s)).collect()
+    }
+
+    pub fn column(&self, name: &str) -> Series {
+        let idx = self.get_index_with_name(name);
+        self.get(idx)
+    }
+
+    pub fn get(&self, idx: usize) -> Series {
+        self.columns[idx]
+    }
+
+    pub fn get_index_with_name(&self, name: &str) -> usize {
+        self.columns.iter().position(|c| c.name() == name).unwrap()
+    }
 }
