@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use crate::{
     chunked_array::types::{BooleanChunked, I32Chunked, Utf8Chunked},
     types::DataType,
 };
 
-use super::{series_trait::SeriesTrait, SeriesWrap};
+use super::{constructor::IntoSeries, series_trait::SeriesTrait, Series, SeriesWrap};
 
 impl SeriesTrait for SeriesWrap<BooleanChunked> {
     fn dtype(&self) -> DataType {
@@ -28,6 +30,15 @@ impl SeriesTrait for SeriesWrap<BooleanChunked> {
         buf: &mut Vec<u64>,
     ) {
         todo!()
+    }
+
+    fn rechunk(&self) -> super::Series {
+        todo!()
+    }
+
+    fn slice(&self, offset: usize, length: usize) -> Series {
+        let chunked = self.0.slice(offset, length);
+        chunked.into_series()
     }
 }
 
@@ -55,6 +66,15 @@ impl SeriesTrait for SeriesWrap<I32Chunked> {
     ) {
         todo!()
     }
+
+    fn rechunk(&self) -> super::Series {
+        todo!()
+    }
+
+    fn slice(&self, offset: usize, length: usize) -> super::Series {
+        let chunked = self.0.slice(offset, length);
+        chunked.into_series()
+    }
 }
 
 impl SeriesTrait for SeriesWrap<Utf8Chunked> {
@@ -80,5 +100,14 @@ impl SeriesTrait for SeriesWrap<Utf8Chunked> {
         buf: &mut Vec<u64>,
     ) {
         todo!()
+    }
+
+    fn rechunk(&self) -> super::Series {
+        todo!()
+    }
+
+    fn slice(&self, offset: usize, length: usize) -> super::Series {
+        let chunked = self.0.slice(offset, length);
+        chunked.into_series()
     }
 }

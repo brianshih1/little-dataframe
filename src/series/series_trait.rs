@@ -2,7 +2,9 @@ use std::collections::hash_map::RandomState;
 
 use crate::types::{DataType, LittleDataType};
 
-pub trait SeriesTrait {
+use super::Series;
+
+pub trait SeriesTrait: Send + Sync {
     fn dtype(&self) -> DataType;
 
     fn len(&self) -> usize;
@@ -12,4 +14,9 @@ pub trait SeriesTrait {
     fn vec_hash(&self, _hasher: RandomState, buf: &mut Vec<u64>);
 
     fn vec_hash_combine(&self, _hasher: RandomState, buf: &mut Vec<u64>);
+
+    // Converts the Series to a single chunk
+    fn rechunk(&self) -> Series;
+
+    fn slice(&self, offset: usize, length: usize) -> Series;
 }

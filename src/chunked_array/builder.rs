@@ -29,6 +29,7 @@ impl NewFrom<bool> for BooleanChunked {
             chunks: vec![Box::new(primitive_array)],
             length,
             phantom: PhantomData,
+            name: name.into(),
         }
     }
 
@@ -45,6 +46,7 @@ impl NewFrom<bool> for BooleanChunked {
             chunks: vec![primitive_arr],
             length,
             phantom: PhantomData,
+            name: name.into(),
         }
     }
 
@@ -66,6 +68,7 @@ impl NewFrom<i32> for I32Chunked {
             chunks: vec![Box::new(primitive_array)],
             length: length,
             phantom: PhantomData,
+            name: name.into(),
         }
     }
 
@@ -81,6 +84,7 @@ impl NewFrom<i32> for I32Chunked {
             chunks: vec![primitive_arr],
             length,
             phantom: PhantomData,
+            name: name.into(),
         }
     }
 
@@ -92,11 +96,14 @@ impl NewFrom<i32> for I32Chunked {
             .iter()
             .map(|list| Box::new(Int32Array::from_iter(list.iter().copied().map(Some))) as ArrayRef)
             .collect::<Vec<_>>();
-        ChunkedArray {
+        let mut arr = ChunkedArray {
             chunks: primitive_arrays,
-            length: lists.len(),
+            length: 0,
             phantom: PhantomData,
-        }
+            name: name.into(),
+        };
+        arr.compute_len();
+        arr
     }
 
     fn from_vec(name: &str, v: &[i32]) -> Self {
@@ -112,6 +119,7 @@ impl NewFrom<&str> for Utf8Chunked {
             chunks: vec![Box::new(primitive_array)],
             length,
             phantom: PhantomData,
+            name: name.into(),
         }
     }
 
@@ -127,6 +135,7 @@ impl NewFrom<&str> for Utf8Chunked {
             chunks: vec![primitive_arr],
             length,
             phantom: PhantomData,
+            name: name.into(),
         }
     }
 

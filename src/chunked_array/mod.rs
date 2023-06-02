@@ -1,7 +1,9 @@
+use arrow2::offset;
 use smartstring::alias::String as SmartString;
 use std::iter::Map;
 use std::marker::PhantomData;
 use std::slice::Iter;
+use std::usize::MIN;
 
 use arrow2::array::{Array, BooleanArray, Int32Array, PrimitiveArray, Utf8Array};
 use arrow2::buffer::Buffer;
@@ -20,6 +22,7 @@ mod filter_test;
 pub mod format;
 mod iter;
 mod iter_test;
+mod mod_test;
 pub mod sort;
 mod sort_test;
 pub mod test_utils;
@@ -34,6 +37,8 @@ pub struct ChunkedArray<T: LittleDataType> {
     pub length: usize,
     phantom: PhantomData<T>,
 }
+
+unsafe impl<T> Send for ChunkedArray<T> where T: LittleDataType {}
 
 pub type ChunkLenIter<'a> = std::iter::Map<std::slice::Iter<'a, ArrayRef>, fn(&ArrayRef) -> usize>;
 
@@ -65,5 +70,34 @@ where
         self.chunks
             .iter()
             .fold(0, |acc, arr| acc + arr.null_count())
+    }
+
+    pub fn slice(&self, offset: usize, length: usize) -> Self {
+        if offset >= self.length {
+            panic!("Offset exceeded array length")
+        }
+        let mut output_chunks = Vec::new();
+        let mut remaining_offset = offset;
+        let mut remaining_length = length;
+        for chunk in &self.chunks {
+            if remaining_offset > chunk.len() {
+                remaining_offset -= chunk.len();
+                continue;
+            }
+            let chunk_len = chunk.len();
+            let slice_len = chunk_len - remaining_offset;
+            if remaining_length > slice_len {
+                output_chunks.push(chunk.sliced(remaining_offset, slice_len));
+                remaining_offset = 0;
+                remaining_length = remaining_length - slice_len;
+                continue;
+            } else {
+                output_chunks.push(
+                    chunk.sliced(remaining_offset, std::cmp::min(slice_len, remaining_length)),
+                );
+                break;
+            }
+        }
+        Self::from_chunks(&self.name, output_chunks)
     }
 }
