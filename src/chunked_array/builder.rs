@@ -52,9 +52,23 @@ impl NewFrom<bool> for BooleanChunked {
 
     #[cfg(test)]
     fn from_lists(name: &str, lists: Vec<&[bool]>) -> Self {
-        todo!()
-    }
+        use crate::little_arrow::types::ArrayRef;
 
+        let primitive_arrays = lists
+            .iter()
+            .map(|list| {
+                Box::new(BooleanArray::from_iter(list.iter().copied().map(Some))) as ArrayRef
+            })
+            .collect::<Vec<_>>();
+        let mut arr = ChunkedArray {
+            chunks: primitive_arrays,
+            length: 0,
+            phantom: PhantomData,
+            name: name.into(),
+        };
+        arr.compute_len();
+        arr
+    }
     fn from_vec(name: &str, v: &[bool]) -> Self {
         todo!()
     }
@@ -141,7 +155,22 @@ impl NewFrom<&str> for Utf8Chunked {
 
     #[cfg(test)]
     fn from_lists(name: &str, lists: Vec<&[&str]>) -> Self {
-        todo!()
+        use crate::little_arrow::types::ArrayRef;
+
+        let primitive_arrays = lists
+            .iter()
+            .map(|list| {
+                Box::new(Utf8Array::<i64>::from_iter(list.iter().copied().map(Some))) as ArrayRef
+            })
+            .collect::<Vec<_>>();
+        let mut arr = ChunkedArray {
+            chunks: primitive_arrays,
+            length: 0,
+            phantom: PhantomData,
+            name: name.into(),
+        };
+        arr.compute_len();
+        arr
     }
 
     fn from_vec(name: &str, v: &[&str]) -> Self {

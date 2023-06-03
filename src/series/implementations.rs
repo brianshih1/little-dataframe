@@ -1,7 +1,10 @@
-use std::sync::Arc;
+use std::{collections::hash_map::RandomState, sync::Arc};
 
 use crate::{
-    chunked_array::types::{BooleanChunked, I32Chunked, Utf8Chunked},
+    chunked_array::{
+        chunk_get::ChunkGet,
+        types::{AnyValue, BooleanChunked, I32Chunked, Utf8Chunked},
+    },
     types::DataType,
 };
 
@@ -20,15 +23,11 @@ impl SeriesTrait for SeriesWrap<BooleanChunked> {
         &self.0.name
     }
 
-    fn vec_hash(&self, _hasher: std::collections::hash_map::RandomState, buf: &mut Vec<u64>) {
+    fn vec_hash(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
         todo!()
     }
 
-    fn vec_hash_combine(
-        &self,
-        _hasher: std::collections::hash_map::RandomState,
-        buf: &mut Vec<u64>,
-    ) {
+    fn vec_hash_combine(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
         todo!()
     }
 
@@ -39,6 +38,10 @@ impl SeriesTrait for SeriesWrap<BooleanChunked> {
     fn slice(&self, offset: usize, length: usize) -> Series {
         let chunked = self.0.slice(offset, length);
         chunked.into_series()
+    }
+
+    fn get(&self, idx: usize) -> Option<AnyValue> {
+        self.0.get_value(idx)
     }
 }
 
@@ -55,15 +58,11 @@ impl SeriesTrait for SeriesWrap<I32Chunked> {
         &self.0.name
     }
 
-    fn vec_hash(&self, _hasher: std::collections::hash_map::RandomState, buf: &mut Vec<u64>) {
+    fn vec_hash(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
         todo!()
     }
 
-    fn vec_hash_combine(
-        &self,
-        _hasher: std::collections::hash_map::RandomState,
-        buf: &mut Vec<u64>,
-    ) {
+    fn vec_hash_combine(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
         todo!()
     }
 
@@ -74,6 +73,10 @@ impl SeriesTrait for SeriesWrap<I32Chunked> {
     fn slice(&self, offset: usize, length: usize) -> super::Series {
         let chunked = self.0.slice(offset, length);
         chunked.into_series()
+    }
+
+    fn get(&self, idx: usize) -> Option<AnyValue> {
+        self.0.get_value(idx)
     }
 }
 
@@ -90,7 +93,7 @@ impl SeriesTrait for SeriesWrap<Utf8Chunked> {
         &self.0.name
     }
 
-    fn vec_hash(&self, _hasher: std::collections::hash_map::RandomState, buf: &mut Vec<u64>) {
+    fn vec_hash(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
         todo!()
     }
 
@@ -109,5 +112,9 @@ impl SeriesTrait for SeriesWrap<Utf8Chunked> {
     fn slice(&self, offset: usize, length: usize) -> super::Series {
         let chunked = self.0.slice(offset, length);
         chunked.into_series()
+    }
+
+    fn get(&self, idx: usize) -> Option<AnyValue> {
+        self.0.get_value(idx)
     }
 }

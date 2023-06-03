@@ -1,6 +1,9 @@
 use std::collections::hash_map::RandomState;
 
-use crate::types::{DataType, LittleDataType};
+use crate::{
+    chunked_array::types::AnyValue,
+    types::{DataType, LittleDataType},
+};
 
 use super::Series;
 
@@ -19,4 +22,6 @@ pub trait SeriesTrait: Send + Sync {
     fn rechunk(&self) -> Series;
 
     fn slice(&self, offset: usize, length: usize) -> Series;
+
+    fn get(&self, idx: usize) -> Option<AnyValue>;
 }

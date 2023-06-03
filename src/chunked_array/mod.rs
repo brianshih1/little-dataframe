@@ -12,11 +12,12 @@ use arrow2::datatypes::DataType as ArrowDataType;
 use crate::little_arrow::types::ArrayRef;
 use crate::types::{DataType, LittleDataType};
 
-use self::types::{I32Chunked, Utf8Chunked};
+use self::types::{AnyValue, I32Chunked, Utf8Chunked};
 
 pub mod aggregate;
 mod aggregate_test;
 pub mod builder;
+pub mod chunk_get;
 pub mod filter;
 mod filter_test;
 pub mod format;

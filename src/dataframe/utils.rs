@@ -5,10 +5,18 @@ pub fn split_df(df: &DataFrame, n: usize) -> Vec<DataFrame> {
 
     let chunk_length = std::cmp::max(split_size, 1);
     let mut frames = Vec::with_capacity(n);
+    println!("chunk_length: {}", chunk_length);
+    println!("split_size: {}", split_size);
     for i in 0..n {
         let offset = i * chunk_length;
-        let sub_df = df.slice(offset, chunk_length);
-        frames.push(sub_df);
+        if i == n - 1 {
+            let sub_df = df.slice(offset, df.rows_count() - offset);
+            frames.push(sub_df);
+        } else {
+            println!("Offset: {}", offset);
+            let sub_df = df.slice(offset, chunk_length);
+            frames.push(sub_df);
+        }
     }
     frames
 }
