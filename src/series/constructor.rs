@@ -50,3 +50,9 @@ where
         Series(Arc::new(SeriesWrap(self)))
     }
 }
+
+impl IntoSeries for Series {
+    fn into_series(self) -> Series {
+        self
+    }
+}

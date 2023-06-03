@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::{
@@ -7,6 +9,7 @@ use crate::{
 
 pub mod join;
 pub mod utils;
+mod utils_test;
 
 pub struct DataFrame {
     pub columns: Vec<Series>,
@@ -95,5 +98,18 @@ impl DataFrame {
             .map(|s| s.slice(offset, length))
             .collect();
         DataFrame::new_no_checks(columns)
+    }
+}
+
+impl Debug for DataFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // let mut debug_struct = f.debug_struct("Dataframes");
+        // debug_struct.field("columns", &self.columns);
+        // debug_struct.finish()
+        writeln!(f, "Dataframe:").unwrap();
+        self.columns.iter().for_each(|ele| {
+            write!(f, "Series: {:?}", ele).unwrap();
+        });
+        write!(f, "")
     }
 }

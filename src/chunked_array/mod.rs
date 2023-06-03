@@ -1,4 +1,4 @@
-use arrow2::offset;
+use arrow2::{array, offset};
 use smartstring::alias::String as SmartString;
 use std::iter::Map;
 use std::marker::PhantomData;
@@ -73,6 +73,7 @@ where
     }
 
     pub fn slice(&self, offset: usize, length: usize) -> Self {
+        let (offset, length) = compute_offset_and_length(offset, length, self.length);
         if offset >= self.length {
             panic!("Offset exceeded array length")
         }
@@ -100,4 +101,16 @@ where
         }
         Self::from_chunks(&self.name, output_chunks)
     }
+}
+
+// returns (new_offset, new_length)
+pub fn compute_offset_and_length(offset: usize, length: usize, array_len: usize) -> (usize, usize) {
+    // if length > array_len {
+    //     (0, std::cmp::min(array_len, array_len - offset))
+    // } else {
+    //     // we want to make sure if the offset + length exceeds array,
+    //     // the new length is just the remaining array
+    //     (offset, std::cmp::min(length, array_len - offset))
+    // }
+    (offset, std::cmp::min(length, array_len - offset))
 }
