@@ -24,4 +24,11 @@ pub trait SeriesTrait: Send + Sync {
     fn slice(&self, offset: usize, length: usize) -> Series;
 
     fn get(&self, idx: usize) -> Option<AnyValue>;
+
+    unsafe fn equal_element(
+        &self,
+        idx_self: usize,
+        other_series: &Series,
+        idx_other: usize,
+    ) -> bool;
 }

@@ -17,6 +17,7 @@ use self::types::{AnyValue, I32Chunked, Utf8Chunked};
 pub mod aggregate;
 mod aggregate_test;
 pub mod builder;
+pub mod chunk_equal;
 pub mod chunk_get;
 pub mod filter;
 mod filter_test;

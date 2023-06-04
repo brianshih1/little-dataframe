@@ -1,6 +1,9 @@
-use std::collections::hash_map::RandomState;
+use std::{
+    collections::hash_map::RandomState,
+    hash::{Hash, Hasher},
+};
 
-use hashbrown::HashMap;
+use hashbrown::{hash_map::RawEntryMut, HashMap};
 use rayon::{
     current_thread_index,
     prelude::{IntoParallelIterator, ParallelIterator},
@@ -37,6 +40,12 @@ pub struct IdxHash {
     pub hash: u64,
 }
 
+impl Hash for IdxHash {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash)
+    }
+}
+
 // Rows corresponding to the same row value are stored in the same HashMap entry.
 // Therefore, the hash and one of the indices for each unique row is stored instead of just
 // the hash.
@@ -50,25 +59,34 @@ pub fn build_probe_table(
     POOL.install(|| {
         (0..num_threads).into_par_iter().map(|thread_no| {
             let mut offset = 0;
-            let mut hashmap = HashMap::new(); // TODO: What capacity should I use?
-            let thread_idx = current_thread_index();
+            let mut hashmap = HashMap::<IdxHash, Vec<usize>>::new(); // TODO: What capacity should I use?
 
             for hashes in hashes {
                 hashes.iter().enumerate().for_each(|(idx, hash)| {
                     if hash % thread_no as u64 == 0 {
                         let idx = offset + idx;
-                        // let entry = hashmap.raw_entry_mut().from_hash(*hash, |idx_hash| {});
-
-                        // .from_hash(original_h, |idx_hash| {
-                        //     // first check the hash values
-                        //     // before we incur a cache miss
-                        //     idx_hash.hash == original_h && {
-                        //         let key_idx = idx_hash.idx;
-                        //         // Safety:
-                        //         // indices in a groupby operation are always in bounds.
-                        //         unsafe { compare_df_rows(keys, key_idx as usize, idx as usize) }
-                        //     }
-                        // });
+                        let entry = hashmap.raw_entry_mut().from_hash(*hash, |idx_hash| {
+                            idx_hash.hash == *hash && {
+                                let entry_idx = idx_hash.idx;
+                                compare_df_row(dataframe, idx, entry_idx)
+                            }
+                        });
+                        match entry {
+                            RawEntryMut::Occupied(mut occupied) => {
+                                let key_value = occupied.get_key_value_mut();
+                                key_value.1.push(idx);
+                            }
+                            RawEntryMut::Vacant(entry) => {
+                                entry.insert_hashed_nocheck(
+                                    *hash,
+                                    IdxHash {
+                                        idx: idx,
+                                        hash: *hash,
+                                    },
+                                    vec![idx],
+                                );
+                            }
+                        };
                     }
                 });
                 offset += hashes.len();
@@ -81,6 +99,11 @@ pub fn build_probe_table(
 }
 
 fn compare_df_row(df: &DataFrame, idx1: usize, idx2: usize) -> bool {
-    df.columns.iter().for_each(|series| {});
+    for series in &df.columns {
+        let is_equal = unsafe { series.equal_element(idx1, series, idx2) };
+        if !is_equal {
+            return false;
+        }
+    }
     true
 }

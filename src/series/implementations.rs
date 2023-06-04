@@ -2,6 +2,7 @@ use std::{collections::hash_map::RandomState, sync::Arc};
 
 use crate::{
     chunked_array::{
+        chunk_equal::ChunkEqualElement,
         chunk_get::ChunkGet,
         types::{AnyValue, BooleanChunked, I32Chunked, Utf8Chunked},
     },
@@ -43,6 +44,15 @@ impl SeriesTrait for SeriesWrap<BooleanChunked> {
     fn get(&self, idx: usize) -> Option<AnyValue> {
         self.0.get_value(idx)
     }
+
+    unsafe fn equal_element(
+        &self,
+        idx_self: usize,
+        other_series: &Series,
+        idx_other: usize,
+    ) -> bool {
+        self.0.equal_element(idx_self, other_series, idx_other)
+    }
 }
 
 impl SeriesTrait for SeriesWrap<I32Chunked> {
@@ -77,6 +87,15 @@ impl SeriesTrait for SeriesWrap<I32Chunked> {
 
     fn get(&self, idx: usize) -> Option<AnyValue> {
         self.0.get_value(idx)
+    }
+
+    unsafe fn equal_element(
+        &self,
+        idx_self: usize,
+        other_series: &Series,
+        idx_other: usize,
+    ) -> bool {
+        self.0.equal_element(idx_self, other_series, idx_other)
     }
 }
 
@@ -116,5 +135,14 @@ impl SeriesTrait for SeriesWrap<Utf8Chunked> {
 
     fn get(&self, idx: usize) -> Option<AnyValue> {
         self.0.get_value(idx)
+    }
+
+    unsafe fn equal_element(
+        &self,
+        idx_self: usize,
+        other_series: &Series,
+        idx_other: usize,
+    ) -> bool {
+        self.0.equal_element(idx_self, other_series, idx_other)
     }
 }

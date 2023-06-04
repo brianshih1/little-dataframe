@@ -1,5 +1,6 @@
 use arrow2::datatypes::DataType as ArrowDataType;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DataType {
     Int32,
     Utf8,

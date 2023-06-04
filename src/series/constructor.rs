@@ -27,8 +27,8 @@ macro_rules! impl_new_from {
             }
 
             #[cfg(test)]
-            fn from_lists(name: &str, _lists: Vec<&[$ty]>) -> Self {
-                todo!()
+            fn from_lists(name: &str, lists: Vec<&[$ty]>) -> Self {
+                ChunkedArray::<$little_data_type>::from_lists(name, lists).into_series()
             }
         }
     };
