@@ -127,7 +127,7 @@ impl NewFrom<i32> for I32Chunked {
 
 impl NewFrom<&str> for Utf8Chunked {
     fn new(name: &str, v: &[&str]) -> Self {
-        let primitive_array = Utf8Array::<i32>::from_iter(v.iter().map(|i| Some(i)));
+        let primitive_array = Utf8Array::<i64>::from_iter(v.iter().map(|i| Some(i)));
         let length = primitive_array.len();
         ChunkedArray {
             chunks: vec![Box::new(primitive_array)],

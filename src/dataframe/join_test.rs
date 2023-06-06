@@ -34,5 +34,10 @@ fn test_inner_join() {
     ]);
 
     let joined = df1.inner_join(vec!["name"], &df2, vec!["name"]);
-    println!("Joined: {:?}", joined);
+    let expected_df = DataFrame::new(vec![
+        Series::from_vec("name", &vec!["foo", "baz"]),
+        Series::from_vec("points", &vec![0, 20]),
+        Series::from_vec("blocks", &vec![0, 2]),
+    ]);
+    assert_eq!(&joined, &expected_df);
 }

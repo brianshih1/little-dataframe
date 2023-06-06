@@ -79,6 +79,7 @@ impl VecHash for Utf8Chunked {
     fn vec_hash(&self, random_state: RandomState, hashes: &mut Vec<u64>) {
         let null_hash = get_null_hash(&random_state);
         self.iter_primitive().for_each(|arr| {
+            let offsets = arr.offsets();
             let casted = utf8_to_binary(arr, ArrowDataType::LargeBinary);
             if casted.null_count() == 0 {
                 hashes.extend(

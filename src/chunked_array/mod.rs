@@ -48,6 +48,10 @@ impl<T> ChunkedArray<T>
 where
     T: LittleDataType,
 {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn chunk_length_it<'a>(&self) -> ChunkLenIter {
         self.chunks.iter().map(|chunk| chunk.len())
     }

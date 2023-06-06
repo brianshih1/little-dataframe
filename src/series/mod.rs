@@ -56,6 +56,9 @@ impl PartialEq for Series {
         if self.len() != other.len() {
             return false;
         }
+        if self.name() != other.name() {
+            return false;
+        }
         for i in 0..self.len() {
             if self.get(i) != other.get(i) {
                 return false;

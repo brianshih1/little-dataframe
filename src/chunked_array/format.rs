@@ -6,7 +6,7 @@ macro_rules! format_chunked_array {
     ($f:ident, $chunked_array:expr) => {{
         let chunks = &$chunked_array.chunks;
         chunks.iter().enumerate().for_each(|(index, value)| {
-            writeln!($f, "Idx: {} - {:?}", index, value).unwrap();
+            writeln!($f, "Name: {} - {:?}", index, value).unwrap();
         });
         write!($f, "")
     }};
