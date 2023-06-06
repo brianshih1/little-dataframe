@@ -2,10 +2,12 @@ use std::{collections::hash_map::RandomState, sync::Arc};
 
 use crate::{
     chunked_array::{
+        builder::NewFrom,
         chunk_equal::ChunkEqualElement,
         chunk_get::ChunkGet,
         types::{AnyValue, BooleanChunked, I32Chunked, Utf8Chunked},
     },
+    hashing::VecHash,
     types::DataType,
 };
 
@@ -24,12 +26,12 @@ impl SeriesTrait for SeriesWrap<BooleanChunked> {
         &self.0.name
     }
 
-    fn vec_hash(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
-        todo!()
+    fn vec_hash(&self, hasher: RandomState, buf: &mut Vec<u64>) {
+        self.0.vec_hash(hasher, buf)
     }
 
-    fn vec_hash_combine(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
-        todo!()
+    fn vec_hash_combine(&self, hasher: RandomState, buf: &mut Vec<u64>) {
+        self.0.vec_hash_combine(hasher, buf)
     }
 
     fn rechunk(&self) -> super::Series {
@@ -53,6 +55,22 @@ impl SeriesTrait for SeriesWrap<BooleanChunked> {
     ) -> bool {
         self.0.equal_element(idx_self, other_series, idx_other)
     }
+
+    fn take_indices(&self, indices: &[usize]) -> Series {
+        // TODO: Optimizations since performing get is expensive
+        let value = indices
+            .iter()
+            .map(|idx| {
+                let v = self.get(*idx);
+                v.map(|v| match v {
+                    AnyValue::Boolean(v) => v,
+                    AnyValue::Utf8(_) => unreachable!(),
+                    AnyValue::Int32(_) => unreachable!(),
+                })
+            })
+            .collect::<Vec<Option<bool>>>();
+        Series::from_slice_options(self.name(), &value)
+    }
 }
 
 impl SeriesTrait for SeriesWrap<I32Chunked> {
@@ -68,12 +86,12 @@ impl SeriesTrait for SeriesWrap<I32Chunked> {
         &self.0.name
     }
 
-    fn vec_hash(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
-        todo!()
+    fn vec_hash(&self, hasher: RandomState, buf: &mut Vec<u64>) {
+        self.0.vec_hash(hasher, buf)
     }
 
-    fn vec_hash_combine(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
-        todo!()
+    fn vec_hash_combine(&self, hasher: RandomState, buf: &mut Vec<u64>) {
+        self.0.vec_hash_combine(hasher, buf)
     }
 
     fn rechunk(&self) -> super::Series {
@@ -96,6 +114,22 @@ impl SeriesTrait for SeriesWrap<I32Chunked> {
         idx_other: usize,
     ) -> bool {
         self.0.equal_element(idx_self, other_series, idx_other)
+    }
+
+    fn take_indices(&self, indices: &[usize]) -> Series {
+        // TODO: Optimizations since performing get is expensive
+        let value = indices
+            .iter()
+            .map(|idx| {
+                let v = self.get(*idx);
+                v.map(|v| match v {
+                    AnyValue::Boolean(_) => unreachable!(),
+                    AnyValue::Utf8(_) => unreachable!(),
+                    AnyValue::Int32(v) => v,
+                })
+            })
+            .collect::<Vec<Option<i32>>>();
+        Series::from_slice_options(self.name(), &value)
     }
 }
 
@@ -112,16 +146,12 @@ impl SeriesTrait for SeriesWrap<Utf8Chunked> {
         &self.0.name
     }
 
-    fn vec_hash(&self, _hasher: RandomState, buf: &mut Vec<u64>) {
-        todo!()
+    fn vec_hash(&self, hasher: RandomState, buf: &mut Vec<u64>) {
+        self.0.vec_hash(hasher, buf)
     }
 
-    fn vec_hash_combine(
-        &self,
-        _hasher: std::collections::hash_map::RandomState,
-        buf: &mut Vec<u64>,
-    ) {
-        todo!()
+    fn vec_hash_combine(&self, hasher: RandomState, buf: &mut Vec<u64>) {
+        self.0.vec_hash_combine(hasher, buf)
     }
 
     fn rechunk(&self) -> super::Series {
@@ -144,5 +174,21 @@ impl SeriesTrait for SeriesWrap<Utf8Chunked> {
         idx_other: usize,
     ) -> bool {
         self.0.equal_element(idx_self, other_series, idx_other)
+    }
+
+    fn take_indices(&self, indices: &[usize]) -> Series {
+        // TODO: Optimizations since performing get is expensive
+        let value = indices
+            .iter()
+            .map(|idx| {
+                let v = self.get(*idx);
+                v.map(|v| match v {
+                    AnyValue::Boolean(_) => unreachable!(),
+                    AnyValue::Utf8(v) => v,
+                    AnyValue::Int32(v) => unreachable!(),
+                })
+            })
+            .collect::<Vec<Option<&str>>>();
+        Series::from_slice_options(self.name(), &value)
     }
 }

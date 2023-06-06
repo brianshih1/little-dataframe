@@ -49,3 +49,18 @@ impl Debug for Series {
         write!(f, "")
     }
 }
+
+// This is very inefficient and should only be used in tests
+impl PartialEq for Series {
+    fn eq(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        for i in 0..self.len() {
+            if self.get(i) != other.get(i) {
+                return false;
+            }
+        }
+        true
+    }
+}

@@ -13,8 +13,14 @@ pub fn split_df(df: &DataFrame, n: usize) -> Vec<DataFrame> {
             let sub_df = df.slice(offset, df.rows_count() - offset);
             frames.push(sub_df);
         } else {
-            println!("Offset: {}", offset);
-            let sub_df = df.slice(offset, chunk_length);
+            if offset >= df.rows_count() {
+                break;
+            }
+
+            let sub_df = df.slice(
+                offset,
+                std::cmp::min(df.rows_count() - offset, chunk_length),
+            );
             frames.push(sub_df);
         }
     }

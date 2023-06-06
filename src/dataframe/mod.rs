@@ -8,6 +8,7 @@ use crate::{
 };
 
 pub mod join;
+mod join_test;
 pub mod utils;
 mod utils_test;
 
@@ -45,6 +46,20 @@ impl DataFrame {
 
     pub fn rows_count(&self) -> usize {
         self.columns[0].len()
+    }
+
+    pub fn columns_count(&self) -> usize {
+        self.columns.len()
+    }
+
+    pub fn drop(&self, name: &str) -> Self {
+        let mut columns = Vec::with_capacity(self.columns.len() - 1);
+        for column in self.columns.iter() {
+            if column.name() != name {
+                columns.push(column.clone());
+            }
+        }
+        DataFrame { columns }
     }
 
     pub fn select_series<I, S>(&self, selection: I) -> Vec<Series>
@@ -99,6 +114,15 @@ impl DataFrame {
             .collect();
         DataFrame::new_no_checks(columns)
     }
+
+    // Returns (row_count, col_count)
+    pub fn dimensions(&self) -> (usize, usize) {
+        if self.columns.len() == 0 {
+            (0, 0)
+        } else {
+            (self.columns[0].len(), self.columns.len())
+        }
+    }
 }
 
 impl Debug for DataFrame {
@@ -111,5 +135,19 @@ impl Debug for DataFrame {
             write!(f, "Series: {:?}", ele).unwrap();
         });
         write!(f, "")
+    }
+}
+
+impl PartialEq for DataFrame {
+    fn eq(&self, other: &Self) -> bool {
+        if self.dimensions() != other.dimensions() {
+            return false;
+        }
+        for (series1, series2) in self.columns.iter().zip(other.columns.iter()) {
+            if series1 != series2 {
+                return false;
+            }
+        }
+        true
     }
 }

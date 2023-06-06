@@ -138,7 +138,7 @@ impl NewFrom<&str> for Utf8Chunked {
     }
 
     fn from_slice_options(name: &str, v: &[Option<&str>]) -> Self {
-        let mut arr = MutableUtf8Array::<i32>::new();
+        let mut arr = MutableUtf8Array::<i64>::new();
         v.iter().copied().for_each(|a| match a {
             Some(v) => arr.push(Some(v)),
             None => arr.push::<&str>(None),

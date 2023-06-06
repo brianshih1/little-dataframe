@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use arrow2::array::{MutableArray, MutableUtf8Array};
+
 use crate::{
     chunked_array::{
         builder::NewFrom,
@@ -18,12 +20,12 @@ macro_rules! impl_new_from {
                 ChunkedArray::<$little_data_type>::new(name, v).into_series()
             }
 
-            fn from_slice_options(_name: &str, _v: &[Option<$ty>]) -> Self {
-                todo!()
+            fn from_slice_options(name: &str, v: &[Option<$ty>]) -> Self {
+                ChunkedArray::<$little_data_type>::from_slice_options(name, v).into_series()
             }
 
-            fn from_vec(_name: &str, _v: &[$ty]) -> Self {
-                todo!()
+            fn from_vec(name: &str, v: &[$ty]) -> Self {
+                ChunkedArray::<$little_data_type>::new(name, v).into_series()
             }
 
             #[cfg(test)]

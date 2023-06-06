@@ -31,4 +31,6 @@ pub trait SeriesTrait: Send + Sync {
         other_series: &Series,
         idx_other: usize,
     ) -> bool;
+
+    fn take_indices(&self, indices: &[usize]) -> Series;
 }

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::types::{DataType, LittleDataType};
 
 use super::ChunkedArray;
@@ -37,4 +39,14 @@ pub enum AnyValue<'a> {
     Boolean(bool),
     Utf8(&'a str),
     Int32(i32),
+}
+
+impl Display for AnyValue<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AnyValue::Boolean(v) => write!(f, "{}", *v),
+            AnyValue::Utf8(v) => write!(f, "{}", format_args!("\"{v}\"")),
+            AnyValue::Int32(v) => write!(f, "{v}"),
+        }
+    }
 }
