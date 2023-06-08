@@ -7,6 +7,7 @@ use crate::{
     series::{constructor::IntoSeries, Series},
 };
 
+pub mod groupby;
 pub mod join;
 mod join_test;
 pub mod utils;
