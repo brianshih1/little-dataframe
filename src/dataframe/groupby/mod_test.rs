@@ -1,3 +1,5 @@
+use crate::{chunked_array::builder::NewFrom, dataframe::DataFrame, series::Series};
+
 use super::join_group_indices;
 
 #[test]
@@ -22,4 +24,17 @@ fn join_group_indices_test() {
             ]
         )
     )
+}
+
+#[test]
+fn test_compute_group_proxy() {
+    let df = DataFrame::new(vec![
+        Series::from_vec("name", &vec!["a", "b", "a", "b", "c"]),
+        Series::from_vec("points", &vec![1, 2, 1, 3, 3]),
+    ]);
+    let group_proxy = df.compute_group_proxy(vec![Series::from_vec(
+        "name",
+        &vec!["a", "b", "a", "b", "c"],
+    )]);
+    println!("Proxy: {:?}", group_proxy);
 }

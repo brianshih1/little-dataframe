@@ -19,11 +19,13 @@ use crate::{
 mod mod_test;
 use super::DataFrame;
 
+#[derive(Debug)]
 pub enum GroupsProxy {
     Idx(GroupsIdx),
     Slice,
 }
 
+#[derive(Debug)]
 pub struct GroupsIdx {
     first: Vec<u32>,
     all: Vec<Vec<u32>>,
@@ -33,10 +35,12 @@ impl DataFrame {
     pub fn compute_group_proxy(&self, by: Vec<Series>) -> GroupsProxy {
         assert_ne!(by.len(), 0);
         assert_eq!(self.rows_count(), by[0].len());
+        let key_df = DataFrame::new(by);
         let n_threads = _set_partition_size();
         let hasher = RandomState::default();
-        let df_split = split_df(self, n_threads);
+        let df_split = split_df(&key_df, n_threads);
         let hashes = hash_dataframes(&df_split, &hasher);
+        println!("Hashed: {:?}", hashes);
         let tuples: Vec<(Vec<u32>, Vec<Vec<u32>>)> = POOL
             .install(|| {
                 (0..n_threads).into_par_iter().map(|thread_no| {
@@ -53,7 +57,7 @@ impl DataFrame {
                                 let entry = hashmap.raw_entry_mut().from_hash(hash, |idx_hash| {
                                     idx_hash.hash == hash && {
                                         let entry_idx = idx_hash.idx;
-                                        compare_df_row(self, idx as usize, entry_idx)
+                                        compare_df_row(&key_df, idx as usize, entry_idx)
                                     }
                                 });
                                 match entry {

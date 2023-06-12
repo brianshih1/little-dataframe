@@ -23,6 +23,12 @@ use crate::{
 
 use super::DataFrame;
 
+pub enum JoinType {
+    Left,
+    Inner,
+    Outer,
+}
+
 impl DataFrame {
     pub fn inner_join<I, S>(&self, select_1: I, df2: &DataFrame, select_2: I) -> DataFrame
     where
@@ -144,6 +150,16 @@ pub fn build_probe_table(
 
 pub fn compare_df_row(df: &DataFrame, idx1: usize, idx2: usize) -> bool {
     for series in &df.columns {
+        let is_equal = unsafe { series.equal_element(idx1, series, idx2) };
+        if !is_equal {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn compare_series_at_idx(series: &Vec<Series>, idx1: usize, idx2: usize) -> bool {
+    for series in series {
         let is_equal = unsafe { series.equal_element(idx1, series, idx2) };
         if !is_equal {
             return false;
