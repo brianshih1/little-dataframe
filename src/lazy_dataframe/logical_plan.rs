@@ -4,6 +4,7 @@ use crate::dataframe::{join::JoinType, DataFrame};
 
 use super::expr::Expr;
 
+#[derive(Clone)]
 // Polars LogicalPlan: https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-lazy/polars-plan/src/logical_plan/mod.rs
 pub enum LogicalPlan {
     Join {

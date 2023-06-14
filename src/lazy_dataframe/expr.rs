@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub enum Expr {
     Column(Arc<str>),
     BinaryExpr {
@@ -13,6 +14,7 @@ pub enum Expr {
     },
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Operator {
     And,
     Or,
