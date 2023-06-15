@@ -23,7 +23,7 @@ use crate::{
 
 use super::DataFrame;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum JoinType {
     Left,
     Inner,

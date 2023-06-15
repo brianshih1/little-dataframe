@@ -8,10 +8,6 @@ pub enum Expr {
         op: Operator,
         right: Box<Expr>,
     },
-    Filter {
-        input: Box<Expr>,
-        by: Box<Expr>,
-    },
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

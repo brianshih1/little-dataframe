@@ -28,10 +28,6 @@ pub fn expr_to_aexpr(expr: Expr, arena: &mut Arena<AExpr>) -> Node {
             op,
             right: expr_to_aexpr(*right, arena),
         },
-        Expr::Filter { input, by } => AExpr::Filter {
-            input: expr_to_aexpr(*input, arena),
-            by: expr_to_aexpr(*by, arena),
-        },
     };
     arena.add(aexpr)
 }
