@@ -31,23 +31,6 @@ where
     }
 }
 
-impl I32Chunked {
-    pub fn to_vec(&self) -> Vec<i32> {
-        let mut list = Vec::with_capacity(self.length);
-        self.iter_primitive().for_each(|primitive_arr| {
-            let buffer = primitive_arr.values();
-            // Buffer derefs to a slice
-            list.extend_from_slice(buffer);
-        });
-        list
-    }
-
-    pub fn to_vec_options(&self) -> Vec<Option<i32>> {
-        let it = self.into_iter();
-        it.collect()
-    }
-}
-
 impl ChunkedSort for I32Chunked {
     fn sort(&self, descending: bool) -> Self {
         if self.null_count() == 0 {

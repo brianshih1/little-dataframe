@@ -5,3 +5,4 @@ pub mod expr;
 pub mod frame;
 pub mod logical_plan;
 pub mod optimizer;
+pub mod physical_plan;

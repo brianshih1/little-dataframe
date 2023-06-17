@@ -15,7 +15,7 @@ where
     B: LittleDataType,
 {
     let arr_a_single_chunk = convert_to_single_chunk(arr1);
-    debug_assert!(arr_a_single_chunk.length == 1);
+    debug_assert!(arr_a_single_chunk.chunks.len() == 1);
     let arr_a_primitive_array = &arr_a_single_chunk.chunks[0];
 
     let mut idx = 0;

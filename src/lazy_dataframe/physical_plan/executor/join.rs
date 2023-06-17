@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::{dataframe::join::JoinType, physical_plan::physical_expr::PhysicalExpr};
+use crate::{
+    dataframe::join::JoinType, lazy_dataframe::physical_plan::physical_expr::PhysicalExpr,
+};
 
 use super::Executor;
 

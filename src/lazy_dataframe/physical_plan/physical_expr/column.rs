@@ -8,8 +8,14 @@ pub struct ColumnExpr {
     pub col_name: Arc<str>,
 }
 
+impl ColumnExpr {
+    pub fn new(col_name: Arc<str>) -> Self {
+        ColumnExpr { col_name }
+    }
+}
+
 impl PhysicalExpr for ColumnExpr {
     fn evaluate(&self, df: DataFrame) -> Series {
-        todo!()
+        df.column(&self.col_name)
     }
 }

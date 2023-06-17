@@ -3,9 +3,10 @@ use std::sync::Arc;
 use crate::dataframe::{join::JoinType, DataFrame};
 
 use super::{
-    aexpr::{expr_to_aexpr, AExpr},
+    aexpr::{create_physical_expr, expr_to_aexpr, AExpr},
     arena::{Arena, Node},
     logical_plan::LogicalPlan,
+    physical_plan::executor::{data_frame_scan::DataFrameScanExec, Executor},
 };
 
 // Original ALogicalPlan from Polars:
@@ -70,4 +71,38 @@ pub fn logical_to_alp(
         },
     };
     alp_arena.add(node)
+}
+impl Default for ALogicalPlan {
+    fn default() -> Self {
+        ALogicalPlan::Selection {
+            input: Node(usize::MAX),
+            predicate: Node(usize::MAX),
+        }
+    }
+}
+
+pub fn alp_node_to_physical_plan(
+    node: Node,
+    expr_arena: &mut Arena<AExpr>,
+    alp_arena: &mut Arena<ALogicalPlan>,
+) -> Box<dyn Executor> {
+    let alp = alp_arena.take(node);
+    match alp {
+        ALogicalPlan::Join {
+            left,
+            right,
+            left_on,
+            right_on,
+            join_type,
+        } => todo!(),
+        ALogicalPlan::Selection { input, predicate } => todo!(),
+        ALogicalPlan::DataFrameScan {
+            df,
+            projection,
+            selection,
+        } => {
+            let selection = selection.map(|node| create_physical_expr(node, expr_arena));
+            Box::new(DataFrameScanExec::new(df, projection, selection))
+        }
+    }
 }
