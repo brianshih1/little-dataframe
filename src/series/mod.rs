@@ -7,8 +7,10 @@ use crate::{
 
 use self::series_trait::SeriesTrait;
 
+pub mod comparison;
 pub mod constructor;
 pub mod constructor_test;
+pub mod downcast;
 pub mod implementations;
 pub mod series_trait;
 
@@ -59,6 +61,8 @@ impl PartialEq for Series {
         if self.name() != other.name() {
             return false;
         }
+
+        // TODO: This section is inefficient. Should use something more similar to ChunkCompare
         for i in 0..self.len() {
             if self.get(i) != other.get(i) {
                 return false;

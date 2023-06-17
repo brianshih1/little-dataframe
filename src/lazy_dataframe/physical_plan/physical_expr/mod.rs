@@ -4,5 +4,5 @@ pub mod binary_expr;
 pub mod column;
 
 pub trait PhysicalExpr: Send + Sync {
-    fn evaluate(&self, df: DataFrame) -> Series;
+    fn evaluate(&self, df: &DataFrame) -> Series;
 }

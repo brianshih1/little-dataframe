@@ -14,4 +14,5 @@ pub enum Expr {
 pub enum Operator {
     And,
     Or,
+    Eq,
 }

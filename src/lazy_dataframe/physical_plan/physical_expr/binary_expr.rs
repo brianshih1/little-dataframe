@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
-use crate::{dataframe::DataFrame, lazy_dataframe::expr::Operator, series::Series};
+use crate::{
+    chunked_array::chunk_compare::ChunkCompare,
+    dataframe::DataFrame,
+    lazy_dataframe::expr::Operator,
+    series::{constructor::IntoSeries, Series},
+};
 
 use super::PhysicalExpr;
 
@@ -17,7 +22,16 @@ impl BinaryExpr {
 }
 
 impl PhysicalExpr for BinaryExpr {
-    fn evaluate(&self, df: DataFrame) -> Series {
-        todo!()
+    fn evaluate(&self, df: &DataFrame) -> Series {
+        let left = self.left.evaluate(df);
+        let right = self.right.evaluate(df);
+        match self.op {
+            Operator::And => todo!(),
+            Operator::Or => todo!(),
+            Operator::Eq => {
+                let boolean_chunk = left.equal(&right);
+                boolean_chunk.into_series()
+            }
+        }
     }
 }

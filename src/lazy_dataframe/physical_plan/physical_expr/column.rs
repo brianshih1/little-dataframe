@@ -15,7 +15,7 @@ impl ColumnExpr {
 }
 
 impl PhysicalExpr for ColumnExpr {
-    fn evaluate(&self, df: DataFrame) -> Series {
+    fn evaluate(&self, df: &DataFrame) -> Series {
         df.column(&self.col_name)
     }
 }
