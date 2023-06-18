@@ -5,8 +5,10 @@ use crate::{
         builder::NewFrom,
         chunk_equal::ChunkEqualElement,
         chunk_get::ChunkGet,
+        filter::ChunkedArrayFilter,
         types::{AnyValue, BooleanChunked, I32Chunked, Utf8Chunked},
     },
+    core::field::Field,
     hashing::VecHash,
     types::DataType,
 };
@@ -71,6 +73,17 @@ impl SeriesTrait for SeriesWrap<BooleanChunked> {
             .collect::<Vec<Option<bool>>>();
         Series::from_slice_options(self.name(), &value)
     }
+
+    fn filter(&self, filter: &BooleanChunked) -> Series {
+        self.0.filter(filter).into_series()
+    }
+
+    fn field(&self) -> Field {
+        Field {
+            name: self.name().into(),
+            dtype: self.dtype(),
+        }
+    }
 }
 
 impl SeriesTrait for SeriesWrap<I32Chunked> {
@@ -131,6 +144,17 @@ impl SeriesTrait for SeriesWrap<I32Chunked> {
             .collect::<Vec<Option<i32>>>();
         Series::from_slice_options(self.name(), &value)
     }
+
+    fn filter(&self, filter: &BooleanChunked) -> Series {
+        self.0.filter(filter).into_series()
+    }
+
+    fn field(&self) -> Field {
+        Field {
+            name: self.name().into(),
+            dtype: self.dtype(),
+        }
+    }
 }
 
 impl SeriesTrait for SeriesWrap<Utf8Chunked> {
@@ -190,5 +214,16 @@ impl SeriesTrait for SeriesWrap<Utf8Chunked> {
             })
             .collect::<Vec<Option<&str>>>();
         Series::from_slice_options(self.name(), &value)
+    }
+
+    fn filter(&self, filter: &BooleanChunked) -> Series {
+        self.0.filter(filter).into_series()
+    }
+
+    fn field(&self) -> Field {
+        Field {
+            name: self.name().into(),
+            dtype: self.dtype(),
+        }
     }
 }

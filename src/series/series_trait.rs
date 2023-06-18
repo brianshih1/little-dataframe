@@ -1,7 +1,8 @@
 use std::collections::hash_map::RandomState;
 
 use crate::{
-    chunked_array::types::AnyValue,
+    chunked_array::types::{AnyValue, BooleanChunked},
+    core::field::Field,
     types::{DataType, LittleDataType},
 };
 
@@ -33,4 +34,8 @@ pub trait SeriesTrait: Send + Sync {
     ) -> bool;
 
     fn take_indices(&self, indices: &[usize]) -> Series;
+
+    fn filter(&self, _filter: &BooleanChunked) -> Series;
+
+    fn field(&self) -> Field;
 }

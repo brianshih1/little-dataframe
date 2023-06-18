@@ -1,6 +1,8 @@
 use once_cell::sync::Lazy;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 
+pub mod field;
+pub mod schema;
 pub mod sync_ptr;
 
 pub static POOL: Lazy<ThreadPool> = Lazy::new(|| {

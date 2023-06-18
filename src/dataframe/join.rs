@@ -39,24 +39,38 @@ impl DataFrame {
         // TODO: Type checking
         let series1 = self.select_series(select_1);
         let series2 = df2.select_series(select_2);
-        println!("Series 1: {:?}", &series1);
-        println!("Series 2: {:?}", &series2);
-        let df1_selected = DataFrame::new_no_checks(series1);
-        let df2_selected = DataFrame::new_no_checks(series2);
+        self.join(series1, df2, series2, JoinType::Inner)
+    }
 
-        let (df1_indices, df2_indices) = compute_inner_join_indices(&df1_selected, &df2_selected);
+    pub fn join(
+        &self,
+        df1_by: Vec<Series>,
+        df2: &DataFrame,
+        df2_by: Vec<Series>,
+        join_type: JoinType,
+    ) -> DataFrame {
+        let df1_selected = DataFrame::new_no_checks(df1_by);
+        let df2_selected = DataFrame::new_no_checks(df2_by);
+        match join_type {
+            JoinType::Left => todo!(),
+            JoinType::Inner => {
+                let (df1_indices, df2_indices) =
+                    compute_inner_join_indices(&df1_selected, &df2_selected);
 
-        let df1 = self.create_df_from_slice(&df1_indices);
-        println!("Df1: {:?}", &df1);
-        let df2 = df2.remove_columns(
-            &df2_selected
-                .columns
-                .iter()
-                .map(|series| series.name())
-                .collect::<Vec<&str>>(),
-        );
-        let df2 = df2.create_df_from_slice(&df2_indices);
-        combine_dataframes(&df1, &df2)
+                let df1 = self.create_df_from_slice(&df1_indices);
+                println!("Df1: {:?}", &df1);
+                let df2 = df2.remove_columns(
+                    &df2_selected
+                        .columns
+                        .iter()
+                        .map(|series| series.name())
+                        .collect::<Vec<&str>>(),
+                );
+                let df2 = df2.create_df_from_slice(&df2_indices);
+                combine_dataframes(&df1, &df2)
+            }
+            JoinType::Outer => todo!(),
+        }
     }
 
     pub fn create_df_from_slice(&self, indices: &[usize]) -> Self {

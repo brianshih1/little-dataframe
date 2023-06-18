@@ -11,6 +11,8 @@ pub struct FilterExec {
 
 impl Executor for FilterExec {
     fn execute(&mut self) -> DataFrame {
-        todo!()
+        let df = self.input.execute();
+        let predicate = self.predicate.evaluate(&df);
+        df.filter(predicate.bool())
     }
 }

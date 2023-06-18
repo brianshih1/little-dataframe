@@ -3,10 +3,11 @@ use std::fmt::Debug;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::{
-    core::POOL,
+    core::{schema::Schema, POOL},
     series::{constructor::IntoSeries, Series},
 };
 
+pub mod filter;
 pub mod groupby;
 pub mod join;
 mod join_test;
@@ -43,6 +44,10 @@ impl DataFrame {
 
     pub fn new_no_checks(columns: Vec<Series>) -> Self {
         DataFrame { columns }
+    }
+
+    pub fn schema(&self) -> Schema {
+        self.columns.iter().map(|column| column.field()).collect()
     }
 
     pub fn rows_count(&self) -> usize {
