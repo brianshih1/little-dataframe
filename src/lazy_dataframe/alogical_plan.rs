@@ -39,21 +39,9 @@ pub enum ALogicalPlan {
 impl ALogicalPlan {
     pub fn schema<'a>(&self, arena: &'a Arena<ALogicalPlan>) -> Schema {
         match self {
-            ALogicalPlan::Join {
-                left,
-                right,
-                left_on,
-                right_on,
-                join_type,
-                schema,
-            } => todo!(),
-            ALogicalPlan::Selection { input, predicate } => todo!(),
-            ALogicalPlan::DataFrameScan {
-                df,
-                projection,
-                selection,
-                schema,
-            } => todo!(),
+            ALogicalPlan::Join { schema, .. } => schema.as_ref().clone(),
+            ALogicalPlan::Selection { input, .. } => arena.get(*input).schema(arena),
+            ALogicalPlan::DataFrameScan { schema, .. } => schema.as_ref().clone(),
         }
     }
 }
@@ -76,18 +64,18 @@ pub fn logical_to_alp(
             right: logical_to_alp(*right, expr_arena, alp_arena),
             left_on: left_on
                 .into_iter()
-                .map(|expr| expr_to_aexpr(expr, expr_arena))
+                .map(|expr| expr_to_aexpr(&expr, expr_arena))
                 .collect(),
             right_on: right_on
                 .into_iter()
-                .map(|expr| expr_to_aexpr(expr, expr_arena))
+                .map(|expr| expr_to_aexpr(&expr, expr_arena))
                 .collect(),
             join_type,
             schema,
         },
         LogicalPlan::Selection { input, predicate } => ALogicalPlan::Selection {
             input: logical_to_alp(*input, expr_arena, alp_arena),
-            predicate: expr_to_aexpr(predicate, expr_arena),
+            predicate: expr_to_aexpr(&predicate, expr_arena),
         },
         LogicalPlan::DataFrameScan {
             df,
@@ -97,7 +85,7 @@ pub fn logical_to_alp(
         } => ALogicalPlan::DataFrameScan {
             df,
             projection,
-            selection: selection.map(|expr| expr_to_aexpr(expr, expr_arena)),
+            selection: selection.map(|expr| expr_to_aexpr(&expr, expr_arena)),
             schema,
         },
     };

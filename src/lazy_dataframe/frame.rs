@@ -1,4 +1,4 @@
-use crate::dataframe::DataFrame;
+use crate::dataframe::{join::JoinType, DataFrame};
 
 use super::{
     aexpr::AExpr,
@@ -6,6 +6,7 @@ use super::{
     arena::{Arena, Node},
     expr::Expr,
     logical_plan::LogicalPlan,
+    logical_plan_builder::LogicalPlanBuilder,
 };
 
 impl DataFrame {
@@ -23,12 +24,27 @@ impl LazyFrame {
         LazyFrame { logical_plan: plan }
     }
 
+    pub fn get_plan_builder(self) -> LogicalPlanBuilder {
+        LogicalPlanBuilder::from_logical_plan(self.logical_plan)
+    }
+
     pub fn filter(self, predicate: Expr) -> Self {
         // TODO: Rewrite wildcard, etc
-        Self::from_logical_plan(LogicalPlan::Selection {
-            input: Box::new(self.logical_plan),
-            predicate,
-        })
+        Self::from_logical_plan(self.get_plan_builder().filter(predicate).build())
+    }
+
+    pub fn join(
+        self,
+        left_on: Vec<Expr>,
+        right_df: LazyFrame,
+        right_on: Vec<Expr>,
+        join_type: JoinType,
+    ) -> Self {
+        Self::from_logical_plan(
+            self.get_plan_builder()
+                .join(left_on, right_df.logical_plan, right_on, join_type)
+                .build(),
+        )
     }
 
     pub fn optimize_from_scratch(&self) {

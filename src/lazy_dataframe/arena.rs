@@ -9,6 +9,10 @@ pub struct Arena<T> {
 pub struct Node(pub usize);
 
 impl<T> Arena<T> {
+    pub fn new() -> Self {
+        Arena { items: vec![] }
+    }
+
     pub fn add(&mut self, value: T) -> Node {
         let len = self.items.len();
         self.items.push(value);

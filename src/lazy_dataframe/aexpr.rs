@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::core::iterator::AExprIter;
+use crate::core::{field::Field, iterator::AExprIter, schema::Schema};
 
 use super::{
     arena::{Arena, Node},
@@ -29,15 +29,22 @@ impl AExpr {
             AExpr::Column(_) => {}
         }
     }
+
+    pub fn to_field(&self, schema: &Schema) -> Field {
+        match self {
+            AExpr::BinaryExpr { left, op, right } => todo!(),
+            AExpr::Column(col_name) => schema.get_field(&col_name).unwrap(),
+        }
+    }
 }
 
-pub fn expr_to_aexpr(expr: Expr, arena: &mut Arena<AExpr>) -> Node {
+pub fn expr_to_aexpr(expr: &Expr, arena: &mut Arena<AExpr>) -> Node {
     let aexpr = match expr {
-        Expr::Column(str) => AExpr::Column(str),
+        Expr::Column(str) => AExpr::Column(str.clone()),
         Expr::BinaryExpr { left, op, right } => AExpr::BinaryExpr {
-            left: expr_to_aexpr(*left, arena),
-            op,
-            right: expr_to_aexpr(*right, arena),
+            left: expr_to_aexpr(left, arena),
+            op: op.clone(),
+            right: expr_to_aexpr(right, arena),
         },
     };
     arena.add(aexpr)

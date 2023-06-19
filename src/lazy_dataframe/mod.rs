@@ -4,5 +4,6 @@ pub mod arena;
 pub mod expr;
 pub mod frame;
 pub mod logical_plan;
+pub mod logical_plan_builder;
 pub mod optimizer;
 pub mod physical_plan;
