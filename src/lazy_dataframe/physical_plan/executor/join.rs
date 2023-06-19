@@ -16,6 +16,24 @@ pub struct JoinExec {
     join_type: JoinType,
 }
 
+impl JoinExec {
+    pub fn new(
+        left: Box<dyn Executor>,
+        right: Box<dyn Executor>,
+        left_on: Vec<Arc<dyn PhysicalExpr>>,
+        right_on: Vec<Arc<dyn PhysicalExpr>>,
+        join_type: JoinType,
+    ) -> Self {
+        JoinExec {
+            left,
+            right,
+            left_on,
+            right_on,
+            join_type,
+        }
+    }
+}
+
 impl Executor for JoinExec {
     fn execute(&mut self) -> DataFrame {
         let left_df = self.left.execute();

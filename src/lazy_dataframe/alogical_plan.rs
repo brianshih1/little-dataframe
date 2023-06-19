@@ -9,7 +9,9 @@ use super::{
     aexpr::{create_physical_expr, expr_to_aexpr, AExpr},
     arena::{Arena, Node},
     logical_plan::LogicalPlan,
-    physical_plan::executor::{data_frame_scan::DataFrameScanExec, filter::FilterExec, Executor},
+    physical_plan::executor::{
+        data_frame_scan::DataFrameScanExec, filter::FilterExec, join::JoinExec, Executor,
+    },
 };
 
 // Original ALogicalPlan from Polars:
@@ -114,7 +116,20 @@ pub fn alp_node_to_physical_plan(
             right_on,
             join_type,
             schema,
-        } => todo!(),
+        } => {
+            let left = alp_node_to_physical_plan(left, expr_arena, alp_arena);
+            let right = alp_node_to_physical_plan(right, expr_arena, alp_arena);
+            let left_on = left_on
+                .iter()
+                .map(|node| create_physical_expr(*node, expr_arena))
+                .collect();
+            let right_on = right_on
+                .iter()
+                .map(|node| create_physical_expr(*node, expr_arena))
+                .collect();
+
+            Box::new(JoinExec::new(left, right, left_on, right_on, join_type))
+        }
         ALogicalPlan::Selection { input, predicate } => {
             let predicate = create_physical_expr(predicate, expr_arena);
             let input = alp_node_to_physical_plan(input, expr_arena, alp_arena);

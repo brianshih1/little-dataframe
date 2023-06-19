@@ -148,7 +148,7 @@ impl Debug for DataFrame {
         // debug_struct.finish()
         writeln!(f, "Dataframe:").unwrap();
         self.columns.iter().for_each(|ele| {
-            write!(f, "Series: {:?}", ele).unwrap();
+            write!(f, "Series ({}): {:?}", ele.name(), ele).unwrap();
         });
         write!(f, "")
     }

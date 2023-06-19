@@ -22,4 +22,11 @@ fn test_filter() {
         .lazy()
         .filter(col("points").eq(lit(20)))
         .collect();
+
+    let expected_df = DataFrame::new(vec![
+        Series::from_vec("name", &vec!["baz"]),
+        Series::from_vec("points", &vec![20]),
+        Series::from_vec("blocks", &vec![2]),
+    ]);
+    assert_eq!(&res, &expected_df);
 }

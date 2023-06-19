@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    fmt::{self, Debug, Formatter},
+    sync::Arc,
+};
 
 use ahash::{HashSet, HashSetExt};
 
@@ -71,4 +74,48 @@ pub fn det_join_schema(
     });
     // TODO: Join Types
     Arc::new(schema)
+}
+
+impl LogicalPlan {
+    fn _fmt(&self, f: &mut Formatter, indent: usize) -> fmt::Result {
+        let next_indent = indent + 3;
+        match self {
+            LogicalPlan::Join {
+                left,
+                right,
+                left_on,
+                right_on,
+                join_type,
+                schema,
+            } => {
+                write!(f, "{:indent$}{join_type:?} JOIN:", "")?;
+                write!(f, "\n{:indent$}LEFT ON: {left_on:?}", "")?;
+                left._fmt(f, next_indent)?;
+                write!(f, "\n{:indent$}RIGHT ON: {right_on:?}", "")?;
+                right._fmt(f, next_indent)?;
+                write!(f, "\n{:indent$}END {join_type:?} JOIN", "")
+            }
+            LogicalPlan::Selection { input, predicate } => {
+                write!(f, "{:indent$}FILTER {predicate:?} FROM", "")?;
+                input._fmt(f, indent)
+            }
+            LogicalPlan::DataFrameScan {
+                df,
+                projection,
+                selection,
+                schema,
+            } => {
+                write!(f, "{:indent$}DF:", "")?;
+                write!(f, "\n{:indent$} PROJECT: {projection:?}", "")?;
+                write!(f, "\n{:indent$} SELECTION: {selection:?}", "")?;
+                write!(f, "\n{:indent$} SCHEMA: {schema:?}", "")
+            }
+        }
+    }
+}
+
+impl Debug for LogicalPlan {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        self._fmt(f, 0)
+    }
 }

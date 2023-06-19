@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use super::lit::LiteralValue;
 
@@ -32,4 +32,14 @@ impl Expr {
 
 pub fn col(str: &str) -> Expr {
     Expr::Column(Arc::from(str))
+}
+
+impl Debug for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expr::Column(name) => write!(f, "col(\"{name}\")"),
+            Expr::BinaryExpr { left, op, right } => write!(f, "[({left:?}) {op:?} ({right:?})]"),
+            Expr::Literal(lit) => write!(f, "lit(\"{lit:?}\")"),
+        }
+    }
 }
