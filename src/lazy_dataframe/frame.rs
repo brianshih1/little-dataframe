@@ -1,17 +1,29 @@
-use crate::dataframe::{join::JoinType, DataFrame};
+use std::sync::Arc;
+
+use crate::{
+    dataframe::{join::JoinType, DataFrame},
+    lazy_dataframe::alogical_plan::logical_to_alp,
+};
 
 use super::{
     aexpr::AExpr,
-    alogical_plan::ALogicalPlan,
+    alogical_plan::{alp_node_to_physical_plan, ALogicalPlan},
     arena::{Arena, Node},
     expr::Expr,
     logical_plan::LogicalPlan,
     logical_plan_builder::LogicalPlanBuilder,
+    physical_plan::executor::Executor,
 };
 
 impl DataFrame {
-    pub fn lazy(&self) -> LazyFrame {
-        todo!()
+    pub fn lazy(self) -> LazyFrame {
+        let schema = self.schema();
+        LazyFrame::from_logical_plan(LogicalPlan::DataFrameScan {
+            df: Arc::new(self),
+            projection: None,
+            selection: None,
+            schema: Arc::new(schema),
+        })
     }
 }
 
@@ -47,8 +59,27 @@ impl LazyFrame {
         )
     }
 
-    pub fn optimize_from_scratch(&self) {
-        todo!()
+    pub fn optimize_with_scratch(
+        self,
+        alp_arena: &mut Arena<ALogicalPlan>,
+        expr_arena: &mut Arena<AExpr>,
+    ) -> Node {
+        let node = logical_to_alp(self.logical_plan, expr_arena, alp_arena);
+
+        // TODO: Optimize
+        node
+    }
+
+    pub fn collect(self) -> DataFrame {
+        let mut executor = self.prepare_collect();
+        executor.execute()
+    }
+
+    fn prepare_collect(self) -> Box<dyn Executor> {
+        let mut expr_arena = Arena::new();
+        let mut alp_arena = Arena::new();
+        let root = self.optimize_with_scratch(&mut alp_arena, &mut expr_arena);
+        alp_node_to_physical_plan(root, &mut expr_arena, &mut alp_arena)
     }
 }
 

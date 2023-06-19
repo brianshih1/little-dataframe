@@ -9,7 +9,7 @@ use super::{
     aexpr::{create_physical_expr, expr_to_aexpr, AExpr},
     arena::{Arena, Node},
     logical_plan::LogicalPlan,
-    physical_plan::executor::{data_frame_scan::DataFrameScanExec, Executor},
+    physical_plan::executor::{data_frame_scan::DataFrameScanExec, filter::FilterExec, Executor},
 };
 
 // Original ALogicalPlan from Polars:
@@ -64,18 +64,18 @@ pub fn logical_to_alp(
             right: logical_to_alp(*right, expr_arena, alp_arena),
             left_on: left_on
                 .into_iter()
-                .map(|expr| expr_to_aexpr(&expr, expr_arena))
+                .map(|expr| expr_to_aexpr(expr, expr_arena))
                 .collect(),
             right_on: right_on
                 .into_iter()
-                .map(|expr| expr_to_aexpr(&expr, expr_arena))
+                .map(|expr| expr_to_aexpr(expr, expr_arena))
                 .collect(),
             join_type,
             schema,
         },
         LogicalPlan::Selection { input, predicate } => ALogicalPlan::Selection {
             input: logical_to_alp(*input, expr_arena, alp_arena),
-            predicate: expr_to_aexpr(&predicate, expr_arena),
+            predicate: expr_to_aexpr(predicate, expr_arena),
         },
         LogicalPlan::DataFrameScan {
             df,
@@ -85,7 +85,7 @@ pub fn logical_to_alp(
         } => ALogicalPlan::DataFrameScan {
             df,
             projection,
-            selection: selection.map(|expr| expr_to_aexpr(&expr, expr_arena)),
+            selection: selection.map(|expr| expr_to_aexpr(expr, expr_arena)),
             schema,
         },
     };
@@ -115,7 +115,11 @@ pub fn alp_node_to_physical_plan(
             join_type,
             schema,
         } => todo!(),
-        ALogicalPlan::Selection { input, predicate } => todo!(),
+        ALogicalPlan::Selection { input, predicate } => {
+            let predicate = create_physical_expr(predicate, expr_arena);
+            let input = alp_node_to_physical_plan(input, expr_arena, alp_arena);
+            Box::new(FilterExec::new(predicate, input))
+        }
         ALogicalPlan::DataFrameScan {
             df,
             projection,

@@ -20,6 +20,7 @@ pub mod builder;
 pub mod chunk_compare;
 mod chunk_compare_test;
 pub mod chunk_equal;
+pub mod chunk_full;
 pub mod chunk_get;
 pub mod filter;
 mod filter_test;

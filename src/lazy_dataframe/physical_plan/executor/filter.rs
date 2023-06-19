@@ -9,6 +9,12 @@ pub struct FilterExec {
     pub input: Box<dyn Executor>,
 }
 
+impl FilterExec {
+    pub fn new(predicate: Arc<dyn PhysicalExpr>, input: Box<dyn Executor>) -> Self {
+        FilterExec { predicate, input }
+    }
+}
+
 impl Executor for FilterExec {
     fn execute(&mut self) -> DataFrame {
         let df = self.input.execute();

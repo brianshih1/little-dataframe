@@ -5,7 +5,10 @@ use crate::core::{field::Field, iterator::AExprIter, schema::Schema};
 use super::{
     arena::{Arena, Node},
     expr::{Expr, Operator},
-    physical_plan::physical_expr::{binary_expr::BinaryExpr, column::ColumnExpr, PhysicalExpr},
+    lit::LiteralValue,
+    physical_plan::physical_expr::{
+        binary_expr::BinaryExpr, column::ColumnExpr, literal::LiteralExpr, PhysicalExpr,
+    },
 };
 
 // Original Polars AExpr: https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-lazy/polars-plan/src/logical_plan/aexpr/mod.rs#L44
@@ -17,6 +20,7 @@ pub enum AExpr {
         right: Node,
     },
     Column(Arc<str>),
+    Literal(LiteralValue),
 }
 
 impl AExpr {
@@ -27,6 +31,7 @@ impl AExpr {
                 stack.push(*right);
             }
             AExpr::Column(_) => {}
+            AExpr::Literal(_) => {}
         }
     }
 
@@ -34,18 +39,20 @@ impl AExpr {
         match self {
             AExpr::BinaryExpr { left, op, right } => todo!(),
             AExpr::Column(col_name) => schema.get_field(&col_name).unwrap(),
+            AExpr::Literal(_) => todo!(),
         }
     }
 }
 
-pub fn expr_to_aexpr(expr: &Expr, arena: &mut Arena<AExpr>) -> Node {
+pub fn expr_to_aexpr(expr: Expr, arena: &mut Arena<AExpr>) -> Node {
     let aexpr = match expr {
         Expr::Column(str) => AExpr::Column(str.clone()),
         Expr::BinaryExpr { left, op, right } => AExpr::BinaryExpr {
-            left: expr_to_aexpr(left, arena),
+            left: expr_to_aexpr(*left, arena),
             op: op.clone(),
-            right: expr_to_aexpr(right, arena),
+            right: expr_to_aexpr(*right, arena),
         },
+        Expr::Literal(v) => AExpr::Literal(v),
     };
     arena.add(aexpr)
 }
@@ -58,6 +65,7 @@ pub fn create_physical_expr(expr: Node, expr_arena: &mut Arena<AExpr>) -> Arc<dy
             create_physical_expr(right, expr_arena),
         )),
         AExpr::Column(col_name) => Arc::new(ColumnExpr::new(col_name)),
+        AExpr::Literal(lit) => Arc::new(LiteralExpr::new(lit)),
     }
 }
 

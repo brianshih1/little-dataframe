@@ -47,9 +47,9 @@ impl LogicalPlan {
 pub fn det_join_schema(
     schema_left: &SchemaRef,
     schema_right: &SchemaRef,
-    left_on: &[Expr],
+    _left_on: &[Expr],
     right_on: &[Expr],
-    join_type: &JoinType,
+    _join_type: &JoinType,
 ) -> SchemaRef {
     // TODO: with capacity
     let mut schema = Schema::new();
@@ -60,7 +60,7 @@ pub fn det_join_schema(
     let mut right_join_keys = HashSet::with_capacity(right_on.len());
     let mut expr_arena = Arena::new();
     right_on.iter().for_each(|key| {
-        let aexpr = expr_to_aexpr(&key, &mut expr_arena);
+        let aexpr = expr_to_aexpr(key.clone(), &mut expr_arena);
         let field = expr_arena.get(aexpr).to_field(&schema_right);
         right_join_keys.insert(field.name);
     });
@@ -69,5 +69,6 @@ pub fn det_join_schema(
             schema.with_column(name.clone(), dtype.clone());
         }
     });
+    // TODO: Join Types
     Arc::new(schema)
 }
