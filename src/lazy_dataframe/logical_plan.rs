@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::dataframe::{join::JoinType, DataFrame};
+use crate::{
+    core::schema::Schema,
+    dataframe::{join::JoinType, DataFrame},
+};
 
 use super::expr::Expr;
 
@@ -13,6 +16,7 @@ pub enum LogicalPlan {
         left_on: Vec<Expr>,
         right_on: Vec<Expr>,
         join_type: JoinType,
+        schema: Arc<Schema>,
     },
     // Basically a filter
     Selection {
@@ -23,6 +27,7 @@ pub enum LogicalPlan {
         df: Arc<DataFrame>,
         projection: Option<Arc<Vec<String>>>,
         selection: Option<Expr>,
+        schema: Arc<Schema>,
     },
     // TODO: Projection
 }

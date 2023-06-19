@@ -14,6 +14,7 @@ mod join_test;
 pub mod utils;
 mod utils_test;
 
+#[derive(Clone)]
 pub struct DataFrame {
     pub columns: Vec<Series>,
 }
@@ -66,6 +67,15 @@ impl DataFrame {
             }
         }
         DataFrame { columns }
+    }
+
+    pub fn select<I, S>(&self, selection: I) -> DataFrame
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let series = self.select_series(selection);
+        DataFrame::new(series)
     }
 
     pub fn select_series<I, S>(&self, selection: I) -> Vec<Series>
@@ -155,5 +165,11 @@ impl PartialEq for DataFrame {
             }
         }
         true
+    }
+}
+
+impl Default for DataFrame {
+    fn default() -> Self {
+        DataFrame::new_no_checks(vec![])
     }
 }

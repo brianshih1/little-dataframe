@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use crate::core::iterator::AExprIter;
+
 use super::{
     arena::{Arena, Node},
     expr::{Expr, Operator},
@@ -15,6 +17,18 @@ pub enum AExpr {
         right: Node,
     },
     Column(Arc<str>),
+}
+
+impl AExpr {
+    pub fn add_nodes_to_stack(&self, stack: &mut Vec<Node>) {
+        match self {
+            AExpr::BinaryExpr { left, right, .. } => {
+                stack.push(*left);
+                stack.push(*right);
+            }
+            AExpr::Column(_) => {}
+        }
+    }
 }
 
 pub fn expr_to_aexpr(expr: Expr, arena: &mut Arena<AExpr>) -> Node {
@@ -38,4 +52,21 @@ pub fn create_physical_expr(expr: Node, expr_arena: &mut Arena<AExpr>) -> Arc<dy
         )),
         AExpr::Column(col_name) => Arc::new(ColumnExpr::new(col_name)),
     }
+}
+
+fn is_leaf(expr: &AExpr) -> bool {
+    matches!(expr, AExpr::Column(_))
+}
+
+impl Arena<AExpr> {
+    pub fn iter(&self, root: Node) -> AExprIter {
+        AExprIter::new(vec![root], self)
+    }
+}
+
+pub fn aexpr_to_leaf_nodes(root: Node, arena: &Arena<AExpr>) -> Vec<Node> {
+    arena
+        .iter(root)
+        .filter_map(|(node, aexpr)| if is_leaf(aexpr) { Some(node) } else { None })
+        .collect()
 }

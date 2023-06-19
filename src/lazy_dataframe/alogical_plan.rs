@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::dataframe::{join::JoinType, DataFrame};
+use crate::{
+    core::schema::Schema,
+    dataframe::{join::JoinType, DataFrame},
+};
 
 use super::{
     aexpr::{create_physical_expr, expr_to_aexpr, AExpr},
@@ -19,6 +22,7 @@ pub enum ALogicalPlan {
         left_on: Vec<Node>,
         right_on: Vec<Node>,
         join_type: JoinType,
+        schema: Arc<Schema>,
     },
     Selection {
         input: Node,
@@ -28,7 +32,30 @@ pub enum ALogicalPlan {
         df: Arc<DataFrame>,
         projection: Option<Arc<Vec<String>>>,
         selection: Option<Node>,
+        schema: Arc<Schema>,
     },
+}
+
+impl ALogicalPlan {
+    pub fn schema<'a>(&self, arena: &'a Arena<ALogicalPlan>) -> Schema {
+        match self {
+            ALogicalPlan::Join {
+                left,
+                right,
+                left_on,
+                right_on,
+                join_type,
+                schema,
+            } => todo!(),
+            ALogicalPlan::Selection { input, predicate } => todo!(),
+            ALogicalPlan::DataFrameScan {
+                df,
+                projection,
+                selection,
+                schema,
+            } => todo!(),
+        }
+    }
 }
 
 pub fn logical_to_alp(
@@ -43,6 +70,7 @@ pub fn logical_to_alp(
             left_on,
             right_on,
             join_type,
+            schema,
         } => ALogicalPlan::Join {
             left: logical_to_alp(*left, expr_arena, alp_arena),
             right: logical_to_alp(*right, expr_arena, alp_arena),
@@ -55,6 +83,7 @@ pub fn logical_to_alp(
                 .map(|expr| expr_to_aexpr(expr, expr_arena))
                 .collect(),
             join_type,
+            schema,
         },
         LogicalPlan::Selection { input, predicate } => ALogicalPlan::Selection {
             input: logical_to_alp(*input, expr_arena, alp_arena),
@@ -64,10 +93,12 @@ pub fn logical_to_alp(
             df,
             projection,
             selection,
+            schema,
         } => ALogicalPlan::DataFrameScan {
             df,
             projection,
             selection: selection.map(|expr| expr_to_aexpr(expr, expr_arena)),
+            schema,
         },
     };
     alp_arena.add(node)
@@ -94,12 +125,14 @@ pub fn alp_node_to_physical_plan(
             left_on,
             right_on,
             join_type,
+            schema,
         } => todo!(),
         ALogicalPlan::Selection { input, predicate } => todo!(),
         ALogicalPlan::DataFrameScan {
             df,
             projection,
             selection,
+            schema,
         } => {
             let selection = selection.map(|node| create_physical_expr(node, expr_arena));
             Box::new(DataFrameScanExec::new(df, projection, selection))

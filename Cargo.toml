@@ -19,6 +19,7 @@ arrow2 = { version = "0.17.1", features = [
         "compute_if_then_else"
     ]}
 hashbrown = "0.13.2"
+indexmap = "1.9.3"
 once_cell = "1.17.1"
 rand = "0.8.5"
 rayon = "1.7.0"

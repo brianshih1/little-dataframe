@@ -1,3 +1,5 @@
+use crate::core::iterator::AExprIter;
+
 #[derive(Clone)]
 pub struct Arena<T> {
     items: Vec<T>,

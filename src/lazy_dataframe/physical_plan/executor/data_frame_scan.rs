@@ -26,6 +26,18 @@ impl DataFrameScanExec {
 
 impl Executor for DataFrameScanExec {
     fn execute(&mut self) -> DataFrame {
-        todo!()
+        let df = std::mem::take(&mut self.df);
+        let mut df = Arc::try_unwrap(df).unwrap_or_else(|df| (*df).clone());
+
+        if let Some(projection) = &self.projection {
+            df = df.select(projection.iter())
+        }
+
+        let pred = self.selection.as_ref().map(|s| s.evaluate(&self.df));
+
+        if let Some(pred) = pred {
+            df = self.df.filter(pred.bool());
+        };
+        df
     }
 }
