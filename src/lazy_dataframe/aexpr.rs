@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{iter::FilterMap, sync::Arc};
 
 use crate::core::{field::Field, iterator::AExprIter, schema::Schema};
 
@@ -79,9 +79,26 @@ impl Arena<AExpr> {
     }
 }
 
-pub fn aexpr_to_leaf_nodes(root: Node, arena: &Arena<AExpr>) -> Vec<Node> {
+pub fn aexpr_to_leaf_nodes_iter<'a>(
+    root: Node,
+    arena: &'a Arena<AExpr>,
+) -> FilterMap<AExprIter<'a>, fn((Node, &'a AExpr)) -> Option<Node>> {
     arena
         .iter(root)
         .filter_map(|(node, aexpr)| if is_leaf(aexpr) { Some(node) } else { None })
-        .collect()
+}
+
+pub fn aexpr_to_leaf_names_iter<'a>(
+    node: Node,
+    arena: &'a Arena<AExpr>,
+) -> impl Iterator<Item = Arc<str>> + 'a {
+    aexpr_to_leaf_nodes_iter(node, arena).map(|node| match arena.get(node) {
+        AExpr::Column(name) => name.clone(),
+        _ => panic!("is not leaf node"),
+    })
+}
+
+//check if all the leaf nodes are a part of the schema.
+pub fn check_input_node(node: Node, schema: &Schema, expr_arena: &Arena<AExpr>) -> bool {
+    aexpr_to_leaf_names_iter(node, expr_arena).all(|name| schema.index_of(name.as_ref()).is_some())
 }
