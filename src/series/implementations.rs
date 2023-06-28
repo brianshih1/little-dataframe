@@ -1,4 +1,4 @@
-use std::{collections::hash_map::RandomState, sync::Arc};
+use std::{cmp::min, collections::hash_map::RandomState, sync::Arc};
 
 use crate::{
     chunked_array::{
@@ -9,6 +9,7 @@ use crate::{
         types::{AnyValue, BooleanChunked, I32Chunked, Utf8Chunked},
     },
     core::field::Field,
+    dataframe::groupby::GroupsProxy,
     hashing::VecHash,
     types::DataType,
 };
@@ -84,6 +85,10 @@ impl SeriesTrait for SeriesWrap<BooleanChunked> {
             dtype: self.dtype(),
         }
     }
+
+    fn agg_min(&self, groups: &GroupsProxy) -> Series {
+        todo!()
+    }
 }
 
 impl SeriesTrait for SeriesWrap<I32Chunked> {
@@ -155,6 +160,25 @@ impl SeriesTrait for SeriesWrap<I32Chunked> {
             dtype: self.dtype(),
         }
     }
+
+    fn agg_min(&self, groups: &GroupsProxy) -> Series {
+        let arr = self.0.iter_primitive().next().unwrap();
+
+        let values: Vec<i32> = groups
+            .all
+            .iter()
+            .enumerate()
+            .map(|(_, indices)| {
+                // TODO: Parallelize
+                let min = indices.iter().fold(i32::MAX, |acc, &idx| {
+                    let v = arr.get(idx as usize).unwrap();
+                    min(acc, v)
+                });
+                min
+            })
+            .collect();
+        Series::new(self.name(), &values)
+    }
 }
 
 impl SeriesTrait for SeriesWrap<Utf8Chunked> {
@@ -225,5 +249,9 @@ impl SeriesTrait for SeriesWrap<Utf8Chunked> {
             name: self.name().into(),
             dtype: self.dtype(),
         }
+    }
+
+    fn agg_min(&self, groups: &GroupsProxy) -> Series {
+        todo!()
     }
 }

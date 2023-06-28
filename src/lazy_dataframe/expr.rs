@@ -11,6 +11,7 @@ pub enum Expr {
         right: Box<Expr>,
     },
     Literal(LiteralValue),
+    Agg(AggExpr),
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -28,10 +29,27 @@ impl Expr {
             right: Box::new(other),
         }
     }
+
+    pub fn min(self) -> Expr {
+        Expr::Agg(AggExpr::Min(Box::new(self)))
+    }
 }
 
 pub fn col(str: &str) -> Expr {
     Expr::Column(Arc::from(str))
+}
+
+#[derive(Clone)]
+pub enum AggExpr {
+    Min(Box<Expr>),
+}
+
+impl Debug for AggExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Min(input) => write!(f, "Min(\"{input:?}\")"),
+        }
+    }
 }
 
 impl Debug for Expr {
@@ -40,6 +58,7 @@ impl Debug for Expr {
             Expr::Column(name) => write!(f, "col(\"{name}\")"),
             Expr::BinaryExpr { left, op, right } => write!(f, "[({left:?}) {op:?} ({right:?})]"),
             Expr::Literal(lit) => write!(f, "lit(\"{lit:?}\")"),
+            Expr::Agg(agg_expr) => write!(f, "Agg(\"{agg_expr:?}\")"),
         }
     }
 }

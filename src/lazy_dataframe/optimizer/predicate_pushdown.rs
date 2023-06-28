@@ -3,7 +3,7 @@ use std::sync::Arc;
 use hashbrown::{hash_map::Entry, HashMap};
 
 use crate::lazy_dataframe::{
-    aexpr::{aexpr_to_leaf_names_iter, AExpr},
+    aexpr::{aexpr_to_leaf_names_iter, check_input_node, AExpr},
     alogical_plan::ALogicalPlan,
     arena::{self, Arena, Node},
     expr::Operator,
@@ -13,6 +13,10 @@ use crate::lazy_dataframe::{
 pub struct PredicatePushdown {}
 
 impl PredicatePushdown {
+    pub fn new() -> Self {
+        PredicatePushdown {}
+    }
+
     pub fn optimize(
         &self,
         logical_plan: ALogicalPlan,
@@ -41,8 +45,37 @@ impl PredicatePushdown {
             } => {
                 let left_schema = alp_arena.get(left).schema(&alp_arena);
                 let right_schema = alp_arena.get(right).schema(&alp_arena);
-                for (name, predicate_node) in acc_predicates.iter() {}
-                todo!()
+                let mut local_predicates = Vec::with_capacity(acc_predicates.len());
+                let mut left_pushdowns = HashMap::new();
+                let mut right_pushdowns = HashMap::new();
+                for (name, predicate_node) in acc_predicates.into_iter() {
+                    let mut did_pushdown = false;
+                    if !predicate_is_pushdown_boundary(predicate_node, expr_arena) {
+                        if check_input_node(predicate_node, &left_schema, expr_arena) {
+                            left_pushdowns.insert(name, predicate_node);
+                            did_pushdown = true;
+                        } else if check_input_node(predicate_node, &right_schema, expr_arena) {
+                            right_pushdowns.insert(name, predicate_node);
+                            did_pushdown = true;
+                        }
+                    }
+                    if !did_pushdown {
+                        local_predicates.push(predicate_node)
+                    }
+                }
+
+                self.pushdown_and_replace(left, left_pushdowns, alp_arena, expr_arena);
+                self.pushdown_and_replace(right, right_pushdowns, alp_arena, expr_arena);
+
+                let new_join = ALogicalPlan::Join {
+                    left,
+                    right,
+                    left_on,
+                    right_on,
+                    join_type,
+                    schema,
+                };
+                self.optional_wrap_selection(new_join, local_predicates, alp_arena, expr_arena)
             }
             ALogicalPlan::Selection { input, predicate } => {
                 let local_predicates = extract_local_predicates(&mut acc_predicates, |node| {
@@ -59,7 +92,34 @@ impl PredicatePushdown {
                 projection,
                 selection,
                 schema,
-            } => todo!(),
+            } => {
+                let selection = if !acc_predicates.is_empty() {
+                    let mut predicate =
+                        combine_predicates(acc_predicates.iter().map(|a| *a.1), expr_arena);
+                    if let Some(selection) = selection {
+                        predicate = expr_arena.add(AExpr::BinaryExpr {
+                            left: predicate,
+                            op: Operator::And,
+                            right: selection,
+                        });
+                    }
+                    Some(predicate)
+                } else {
+                    selection
+                };
+                ALogicalPlan::DataFrameScan {
+                    df,
+                    projection,
+                    selection,
+                    schema,
+                }
+            }
+            ALogicalPlan::GroupBy { input, by, agg } => {
+                self.pushdown_and_replace(input, acc_predicates, alp_arena, expr_arena);
+                let lp = ALogicalPlan::GroupBy { input, by, agg };
+                // TODO: We might need to have some local predicates here
+                self.optional_wrap_selection(lp, vec![], alp_arena, expr_arena)
+            }
         }
     }
 
@@ -77,6 +137,18 @@ impl PredicatePushdown {
             let input = alp_arena.add(lp);
             ALogicalPlan::Selection { input, predicate }
         }
+    }
+
+    // Pushes down the predicates to the Node and replace the Node with the wrapped value.
+    fn pushdown_and_replace(
+        &self,
+        node: Node,
+        predicates: HashMap<Arc<str>, Node>,
+        alp_arena: &mut Arena<ALogicalPlan>,
+        expr_arena: &mut Arena<AExpr>,
+    ) {
+        let new_alp = self.push_down(alp_arena.take(node), alp_arena, expr_arena, predicates);
+        alp_arena.replace(node, new_alp);
     }
 }
 

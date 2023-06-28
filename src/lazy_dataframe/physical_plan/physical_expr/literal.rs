@@ -3,7 +3,7 @@ use crate::{
         chunk_full::ChunkFull,
         types::{BooleanChunked, I32Chunked, Utf8Chunked},
     },
-    dataframe::DataFrame,
+    dataframe::{groupby::GroupsProxy, DataFrame},
     lazy_dataframe::lit::LiteralValue,
     series::{constructor::IntoSeries, Series},
 };
@@ -32,5 +32,9 @@ impl PhysicalExpr for LiteralExpr {
             LiteralValue::Int32(v) => I32Chunked::full(series_name, *v, rows_count).into_series(),
             LiteralValue::Utf8(v) => Utf8Chunked::full(series_name, v, rows_count).into_series(),
         }
+    }
+
+    fn evaluate_for_groups(&self, df: &DataFrame, group_proxy: &GroupsProxy) -> Series {
+        todo!()
     }
 }

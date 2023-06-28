@@ -19,6 +19,11 @@ impl<T> Arena<T> {
         Node(len)
     }
 
+    pub fn replace(&mut self, idx: Node, val: T) {
+        let ele = self.get_mut(idx);
+        *ele = val;
+    }
+
     pub fn get_mut(&mut self, idx: Node) -> &mut T {
         self.items.get_mut(idx.0).unwrap()
     }

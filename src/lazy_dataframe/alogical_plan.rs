@@ -6,11 +6,12 @@ use crate::{
 };
 
 use super::{
-    aexpr::{create_physical_expr, expr_to_aexpr, AExpr},
+    aexpr::{create_physical_expr, expr_node_to_expr, expr_to_aexpr, AExpr},
     arena::{Arena, Node},
     logical_plan::LogicalPlan,
     physical_plan::executor::{
-        data_frame_scan::DataFrameScanExec, filter::FilterExec, join::JoinExec, Executor,
+        data_frame_scan::DataFrameScanExec, filter::FilterExec, groupby::GroupByExec,
+        join::JoinExec, Executor,
     },
 };
 
@@ -36,6 +37,11 @@ pub enum ALogicalPlan {
         selection: Option<Node>,
         schema: Arc<Schema>,
     },
+    GroupBy {
+        input: Node,
+        by: Vec<Node>,
+        agg: Vec<Node>,
+    },
 }
 
 impl ALogicalPlan {
@@ -44,6 +50,63 @@ impl ALogicalPlan {
             ALogicalPlan::Join { schema, .. } => schema.as_ref().clone(),
             ALogicalPlan::Selection { input, .. } => arena.get(*input).schema(arena),
             ALogicalPlan::DataFrameScan { schema, .. } => schema.as_ref().clone(),
+            ALogicalPlan::GroupBy { input, by, agg } => todo!(),
+        }
+    }
+
+    pub fn to_lp(
+        self,
+        alp_arena: &mut Arena<ALogicalPlan>,
+        expr_arena: &mut Arena<AExpr>,
+    ) -> LogicalPlan {
+        match self {
+            ALogicalPlan::Join {
+                left,
+                right,
+                left_on,
+                right_on,
+                join_type,
+                schema,
+            } => LogicalPlan::Join {
+                left: Box::new(alp_arena.take(left).to_lp(alp_arena, expr_arena)),
+                right: Box::new(alp_arena.take(right).to_lp(alp_arena, expr_arena)),
+                left_on: left_on
+                    .iter()
+                    .map(|node| expr_node_to_expr(*node, expr_arena))
+                    .collect(),
+                right_on: right_on
+                    .iter()
+                    .map(|node| expr_node_to_expr(*node, expr_arena))
+                    .collect(),
+                join_type,
+                schema,
+            },
+            ALogicalPlan::Selection { input, predicate } => LogicalPlan::Selection {
+                input: Box::new(alp_arena.take(input).to_lp(alp_arena, expr_arena)),
+                predicate: expr_node_to_expr(predicate, expr_arena),
+            },
+            ALogicalPlan::DataFrameScan {
+                df,
+                projection,
+                selection,
+                schema,
+            } => LogicalPlan::DataFrameScan {
+                df,
+                projection,
+                selection: selection.map(|node| expr_node_to_expr(node, expr_arena)),
+                schema,
+            },
+            ALogicalPlan::GroupBy { input, by, agg } => LogicalPlan::GroupBy {
+                keys: by
+                    .iter()
+                    .map(|node| expr_node_to_expr(*node, expr_arena))
+                    .collect(),
+                agg: agg
+                    .iter()
+                    .map(|node| expr_node_to_expr(*node, expr_arena))
+                    .collect(),
+                input: Box::new(alp_arena.take(input).to_lp(alp_arena, expr_arena)),
+            },
         }
     }
 }
@@ -89,6 +152,17 @@ pub fn logical_to_alp(
             projection,
             selection: selection.map(|expr| expr_to_aexpr(expr, expr_arena)),
             schema,
+        },
+        LogicalPlan::GroupBy { keys, agg, input } => ALogicalPlan::GroupBy {
+            input: logical_to_alp(*input, expr_arena, alp_arena),
+            by: keys
+                .into_iter()
+                .map(|expr| expr_to_aexpr(expr, expr_arena))
+                .collect(),
+            agg: agg
+                .into_iter()
+                .map(|expr| expr_to_aexpr(expr, expr_arena))
+                .collect(),
         },
     };
     alp_arena.add(node)
@@ -143,6 +217,22 @@ pub fn alp_node_to_physical_plan(
         } => {
             let selection = selection.map(|node| create_physical_expr(node, expr_arena));
             Box::new(DataFrameScanExec::new(df, projection, selection))
+        }
+        ALogicalPlan::GroupBy { input, by, agg } => {
+            let input = alp_node_to_physical_plan(input, expr_arena, alp_arena);
+            let by = by
+                .iter()
+                .map(|node| create_physical_expr(*node, expr_arena))
+                .collect();
+            let agg = agg
+                .iter()
+                .map(|node| create_physical_expr(*node, expr_arena))
+                .collect();
+            Box::new(GroupByExec {
+                input,
+                keys: by,
+                agg,
+            })
         }
     }
 }

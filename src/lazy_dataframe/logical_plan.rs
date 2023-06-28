@@ -34,6 +34,11 @@ pub enum LogicalPlan {
         selection: Option<Expr>,
         schema: Arc<Schema>,
     },
+    GroupBy {
+        keys: Vec<Expr>,
+        agg: Vec<Expr>,
+        input: Box<LogicalPlan>,
+    },
     // TODO: Projection
 }
 
@@ -43,6 +48,7 @@ impl LogicalPlan {
             LogicalPlan::Join { schema, .. } => schema.clone(),
             LogicalPlan::Selection { input, predicate } => input.schema(),
             LogicalPlan::DataFrameScan { schema, .. } => schema.clone(),
+            LogicalPlan::GroupBy { keys, agg, .. } => todo!(),
         }
     }
 }
@@ -109,6 +115,13 @@ impl LogicalPlan {
                 write!(f, "\n{:indent$} PROJECT: {projection:?}", "")?;
                 write!(f, "\n{:indent$} SELECTION: {selection:?}", "")?;
                 write!(f, "\n{:indent$} SCHEMA: {schema:?}", "")
+            }
+            LogicalPlan::GroupBy { keys, agg, input } => {
+                write!(f, "{:indent$}GROUPBY:", "")?;
+
+                write!(f, "\n{:indent$} KEYS: {keys:?}", "")?;
+                write!(f, "\n{:indent$} BY: {agg:?}", "");
+                write!(f, "\n{:indent$} INPUT: {input:?}", "")
             }
         }
     }

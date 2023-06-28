@@ -20,15 +20,9 @@ mod mod_test;
 use super::DataFrame;
 
 #[derive(Debug)]
-pub enum GroupsProxy {
-    Idx(GroupsIdx),
-    Slice,
-}
-
-#[derive(Debug)]
-pub struct GroupsIdx {
-    first: Vec<u32>,
-    all: Vec<Vec<u32>>,
+pub struct GroupsProxy {
+    pub first: Vec<u32>,
+    pub all: Vec<Vec<u32>>,
 }
 
 impl DataFrame {
@@ -87,10 +81,10 @@ impl DataFrame {
             })
             .collect();
         let (first_indices, grouped_indices) = join_group_indices(tuples);
-        GroupsProxy::Idx(GroupsIdx {
+        GroupsProxy {
             first: first_indices,
             all: grouped_indices,
-        })
+        }
     }
 }
 

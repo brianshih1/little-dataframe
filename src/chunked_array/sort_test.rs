@@ -43,7 +43,7 @@ mod sort_i32 {
         let arr = ChunkedArray::new("s", &vec![12, 1, 5, 8]);
         let sorted = arr.sort(true);
         println!("arr: {:?}", &sorted);
-        assert_eq!(sorted.to_vec(), vec![1, 5, 8, 12]);
+        assert_eq!(sorted.to_vec(), vec![12, 8, 5, 1]);
     }
 
     #[test]

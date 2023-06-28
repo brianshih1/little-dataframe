@@ -3,6 +3,7 @@ pub mod alogical_plan;
 pub mod arena;
 pub mod expr;
 pub mod frame;
+pub mod lazy_groupby;
 pub mod lit;
 pub mod logical_plan;
 pub mod logical_plan_builder;

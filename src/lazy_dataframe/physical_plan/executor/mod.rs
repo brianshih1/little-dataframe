@@ -3,6 +3,8 @@ use crate::dataframe::DataFrame;
 pub mod data_frame_scan;
 pub mod filter;
 mod filter_test;
+pub mod groupby;
+mod groupby_test;
 pub mod join;
 mod join_test;
 

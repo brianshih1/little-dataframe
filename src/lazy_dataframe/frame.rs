@@ -10,8 +10,10 @@ use super::{
     alogical_plan::{alp_node_to_physical_plan, ALogicalPlan},
     arena::{Arena, Node},
     expr::Expr,
+    lazy_groupby::LazyGroupBy,
     logical_plan::LogicalPlan,
     logical_plan_builder::LogicalPlanBuilder,
+    optimizer::predicate_pushdown::PredicatePushdown,
     physical_plan::executor::Executor,
 };
 
@@ -59,6 +61,10 @@ impl LazyFrame {
         )
     }
 
+    pub fn groupby(self, by: Vec<Expr>) -> LazyGroupBy {
+        LazyGroupBy::new(self.logical_plan, by)
+    }
+
     pub fn optimize_with_scratch(
         self,
         alp_arena: &mut Arena<ALogicalPlan>,
@@ -66,8 +72,19 @@ impl LazyFrame {
     ) -> Node {
         let node = logical_to_alp(self.logical_plan, expr_arena, alp_arena);
 
-        // TODO: Optimize
+        let predicate_pushdown = PredicatePushdown::new();
+        let alp = alp_arena.take(node);
+        let new_alp = predicate_pushdown.optimize(alp, alp_arena, expr_arena);
+        alp_arena.replace(node, new_alp);
         node
+    }
+
+    pub fn get_optimized_plan(self) -> LogicalPlan {
+        let mut expr_arena = Arena::new();
+        let mut alp_arena = Arena::new();
+        let root = self.optimize_with_scratch(&mut alp_arena, &mut expr_arena);
+        let alp = alp_arena.take(root);
+        alp.to_lp(&mut alp_arena, &mut expr_arena)
     }
 
     pub fn collect(self) -> DataFrame {

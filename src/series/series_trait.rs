@@ -3,6 +3,7 @@ use std::collections::hash_map::RandomState;
 use crate::{
     chunked_array::types::{AnyValue, BooleanChunked},
     core::field::Field,
+    dataframe::groupby::GroupsProxy,
     types::{DataType, LittleDataType},
 };
 
@@ -38,4 +39,6 @@ pub trait SeriesTrait: Send + Sync {
     fn filter(&self, _filter: &BooleanChunked) -> Series;
 
     fn field(&self) -> Field;
+
+    fn agg_min(&self, groups: &GroupsProxy) -> Series;
 }

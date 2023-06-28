@@ -33,10 +33,10 @@ impl Executor for DataFrameScanExec {
             df = df.select(projection.iter())
         }
 
-        let pred = self.selection.as_ref().map(|s| s.evaluate(&self.df));
+        let pred = self.selection.as_ref().map(|s| s.evaluate(&df));
 
         if let Some(pred) = pred {
-            df = self.df.filter(pred.bool());
+            df = df.filter(pred.bool());
         };
         df
     }

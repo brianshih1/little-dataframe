@@ -99,7 +99,11 @@ impl DataFrame {
     }
 
     pub fn get_index_with_name(&self, name: &str) -> usize {
-        self.columns.iter().position(|c| c.name() == name).unwrap()
+        let col = self.columns.iter().position(|c| c.name() == name);
+        if col.is_none() {
+            panic!("column not found for name: {name}");
+        }
+        col.unwrap()
     }
 
     // For now, makes all the chunks

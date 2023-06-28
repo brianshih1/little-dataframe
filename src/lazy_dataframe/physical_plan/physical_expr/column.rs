@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::{dataframe::DataFrame, series::Series};
+use crate::{
+    dataframe::{groupby::GroupsProxy, DataFrame},
+    series::Series,
+};
 
 use super::PhysicalExpr;
 
@@ -17,5 +20,9 @@ impl ColumnExpr {
 impl PhysicalExpr for ColumnExpr {
     fn evaluate(&self, df: &DataFrame) -> Series {
         df.column(&self.col_name)
+    }
+
+    fn evaluate_for_groups(&self, df: &DataFrame, group_proxy: &GroupsProxy) -> Series {
+        todo!()
     }
 }

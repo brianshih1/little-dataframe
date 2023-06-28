@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     chunked_array::chunk_compare::ChunkCompare,
-    dataframe::DataFrame,
+    dataframe::{groupby::GroupsProxy, DataFrame},
     lazy_dataframe::expr::Operator,
     series::{constructor::IntoSeries, Series},
 };
@@ -33,5 +33,9 @@ impl PhysicalExpr for BinaryExpr {
                 boolean_chunk.into_series()
             }
         }
+    }
+
+    fn evaluate_for_groups(&self, df: &DataFrame, group_proxy: &GroupsProxy) -> Series {
+        todo!()
     }
 }
