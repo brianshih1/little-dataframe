@@ -25,7 +25,15 @@ impl Executor for GroupByExec {
 
         let mut columns_selected = by
             .iter()
-            .map(|col| compute_key(col, &group_proxy.first))
+            .map(|col| {
+                col.take_indices(
+                    &group_proxy
+                        .first
+                        .iter()
+                        .map(|idx| *idx as usize)
+                        .collect::<Vec<usize>>(),
+                )
+            })
             .collect::<Vec<Series>>();
         let columns_aggregated = self
             .agg
@@ -35,9 +43,4 @@ impl Executor for GroupByExec {
         columns_selected.extend(columns_aggregated);
         DataFrame::new(columns_selected)
     }
-}
-
-fn compute_key(series: &Series, indices: &Vec<u32>) -> Series {
-    // Extracts the series to only keep the elements in the indices
-    todo!()
 }

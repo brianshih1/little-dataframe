@@ -17,16 +17,13 @@ impl PhysicalExpr for AggregationExpr {
     }
 
     fn evaluate_for_groups(&self, df: &DataFrame, group_proxy: &GroupsProxy) -> Series {
-        let input = self.evaluate(df);
         match self {
             AggregationExpr::Min(agg) => {
                 // TODO: This should be evaluate_groups.
                 // But for the MVP, let's just only support col(...).agg(...)
                 let series = agg.evaluate(df);
+                series.agg_min(group_proxy)
             }
         }
-        todo!()
     }
 }
-
-pub fn agg_min() {}
