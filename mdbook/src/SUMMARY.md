@@ -1,18 +1,18 @@
 # Summary
 
 [Motivation](./motivation.md)
-[Brief Intro to Arrow2](./arrow_2_intro.md)
+[Quick Introduction to Polars](./polars_intro.md)
+[What is Arrow?](./arrow_intro.md)
 
 ---
 
-# Deep Dive
+# Deep Dive Into Polars
 
 - [ChunkedArray](./chunked_array/intro.md)
 
   - [Filter](./chunked_array/filter.md)
   - [Sort](./chunked_array/sort.md)
   - [Aggregate](./chunked_array/aggregate.md)
-  - [Series](./chunked_array/series.md)
 
 - [Dataframe](./dataframe/intro.md)
 
