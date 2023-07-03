@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../motivation.html">Motivation</a></li><li class="chapter-item expanded affix "><a href="../polars_intro.html">Quick Introduction to Polars</a></li><li class="chapter-item expanded affix "><a href="../arrow_intro.html">What is Arrow?</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Deep Dive Into Polars</li><li class="chapter-item expanded "><a href="../chunked_array/intro.html"><strong aria-hidden="true">1.</strong> ChunkedArray</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../chunked_array/filter.html"><strong aria-hidden="true">1.1.</strong> Filter</a></li><li class="chapter-item expanded "><a href="../chunked_array/sort.html"><strong aria-hidden="true">1.2.</strong> Sort</a></li><li class="chapter-item expanded "><a href="../chunked_array/aggregate.html"><strong aria-hidden="true">1.3.</strong> Aggregate</a></li><li class="chapter-item expanded "><a href="../chunked_array/series.html"><strong aria-hidden="true">1.4.</strong> Series</a></li></ol></li><li class="chapter-item expanded "><a href="../dataframe/intro.html"><strong aria-hidden="true">2.</strong> Dataframe</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../dataframe/join.html" class="active"><strong aria-hidden="true">2.1.</strong> Join</a></li><li class="chapter-item expanded "><a href="../dataframe/groupby.html"><strong aria-hidden="true">2.2.</strong> Groupby</a></li></ol></li><li class="chapter-item expanded "><a href="../lazyframe/intro.html"><strong aria-hidden="true">3.</strong> LazyFrame</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../lazyframe/predicate_pushdown.html"><strong aria-hidden="true">3.1.</strong> Predicate Pushdown</a></li><li class="chapter-item expanded "><a href="../lazyframe/projection_pushdown.html"><strong aria-hidden="true">3.2.</strong> Projection Pushdown</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../motivation.html">Motivation</a></li><li class="chapter-item expanded affix "><a href="../polars_intro.html">Quick Introduction to Polars</a></li><li class="chapter-item expanded affix "><a href="../arrow_intro.html">What is Arrow?</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Deep Dive Into Polars</li><li class="chapter-item expanded "><a href="../chunked_array/intro.html"><strong aria-hidden="true">1.</strong> ChunkedArray</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../chunked_array/filter.html"><strong aria-hidden="true">1.1.</strong> Filter</a></li><li class="chapter-item expanded "><a href="../chunked_array/sort.html"><strong aria-hidden="true">1.2.</strong> Sort</a></li><li class="chapter-item expanded "><a href="../chunked_array/aggregate.html"><strong aria-hidden="true">1.3.</strong> Aggregate</a></li></ol></li><li class="chapter-item expanded "><a href="../dataframe/intro.html"><strong aria-hidden="true">2.</strong> Dataframe</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../dataframe/join.html" class="active"><strong aria-hidden="true">2.1.</strong> Join</a></li><li class="chapter-item expanded "><a href="../dataframe/groupby.html"><strong aria-hidden="true">2.2.</strong> Groupby</a></li></ol></li><li class="chapter-item expanded "><a href="../lazyframe/intro.html"><strong aria-hidden="true">3.</strong> LazyFrame</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../lazyframe/predicate_pushdown.html"><strong aria-hidden="true">3.1.</strong> Predicate Pushdown</a></li><li class="chapter-item expanded "><a href="../lazyframe/projection_pushdown.html"><strong aria-hidden="true">3.2.</strong> Projection Pushdown</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -143,6 +143,92 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="join"><a class="header" href="#join">Join</a></h1>
+<p>Polars uses a lock-free parallel hash join algorithm. The technique Polars uses is similar to the hash join algorithm presented in <a href="https://www.cockroachlabs.com/blog/vectorized-hash-joiner/">this CockroachDB blog</a>.</p>
+<h3 id="hash-join-refresher"><a class="header" href="#hash-join-refresher">Hash Join Refresher</a></h3>
+<p>The hash join algorithm consists of the following steps:</p>
+<ul>
+<li><strong>Hash the join keys</strong>: compute the hash for each row in the two join tables.</li>
+<li><strong>Build phase</strong>: compute the hash table for the smaller table. The key of the hash table is the join keys and the value is the index of the row</li>
+<li><strong>Probe phase</strong>: for every row in the larger table, check if there’s a row in the hash table with matching join keys, If there is, add it to the result set.</li>
+</ul>
+<p>Now, let’s talk about Polars’ version of hash join.</p>
+<h3 id="hashing"><a class="header" href="#hashing">Hashing</a></h3>
+<p>Since Polars maintains data using a columnar format, Polars builds the hashes for the rows column-by-column to be CPU cache friendly.</p>
+<img src="../assets/computing_hashes.png" width="97%">
+<p>The figure above showcases how hash values are computed. In the example, <code>id</code> and <code>id_2</code> are the join keys of the table.</p>
+<p>First, we calculate the hash for the <code>id</code> column. Next, we merge the hash of the <code>id</code> column with the value from <code>id_2</code>, resulting in a new combined hash. In the event of a third join key, we would merge the computed hash with the value of the third join key.</p>
+<p>In general, we compute the <code>hash</code> for the first column. Then we use <code>hash_combine(old_hash, value)</code> on the subsequent columns to compute the new hashes.</p>
+<p>This algorithm allows Polars to perform simple for loops over each column which is fast. In contrast, performing row-by-row hashing for columnar data is unfriendly to the CPU.</p>
+<p>In Polars, each <code>ChunkedArray</code> needs to implement the <code>[VecHasher</code> trait](https://github.com/pola-rs/polars/blob/main/polars/polars-core/src/hashing/vector_hasher.rs#L21). This means that each column type needs to have the ability to calculate its own hash and combine it with other hashes.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait VecHash {
+    /// Compute the hash for all values in the array.
+    fn vec_hash(&amp;self, _random_state: RandomState, _buf: &amp;mut Vec&lt;u64&gt;);
+
+    fn vec_hash_combine(&amp;self, _random_state: RandomState, _hashes: &amp;mut [u64]);
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Since my toy Polars implementation supports 3 data types - <code>bool</code>, <code>i32</code>, and <code>Utf8</code>, I looked at the hash algorithms used by Polars for <code>vec_hash</code> and <code>vec_hash_combine</code> with these data types. Here is a summary:</p>
+<p><strong>Integer</strong></p>
+<ul>
+<li><code>vec_hash</code>: <a href="https://docs.rs/ahash/latest/ahash/">AHash</a></li>
+<li><code>vec_hash_combine</code>: AHash</li>
+</ul>
+<p><strong>Bool</strong></p>
+<ul>
+<li><code>vec_hash</code>: default Rust’s hash method - SipHash 1-3</li>
+<li><code>vec_hash_combine</code> - _boost_hash_combine</li>
+</ul>
+<p><strong>Utf8</strong></p>
+<ul>
+<li><code>vec_hash</code> - <a href="https://docs.rs/xxhash-rust/latest/xxhash_rust/xxh3/index.html">xxh3</a> hash</li>
+<li><code>vec_hash_combine</code> - <a href="https://www.boost.org/doc/libs/1_55_0/doc/html/hash/reference.html#boost.hash_combine">_boost_hash_combine</a></li>
+</ul>
+<p>I didn’t look too deeply into why Polars chose these hash algorithms. But the author of Polars referenced <a href="http://myeyesareblind.com/2017/02/06/Combine-hash-values/">this blog</a> which contains the performance analysis of different hash combine algorithms.</p>
+<p><strong>Parallelizing computing hashes</strong></p>
+<p>Polars parallelizes computing the hashes when the number of rows get large. Parallelizing work over a dataframe isn’t as straightforward as parallelizing work across a single array. This is because each <code>Series</code> is composed of a <code>ChunkedArray</code> which is made up of chunks of <code>Arrow2</code> arrays.</p>
+<p>The number of chunks and the chunk sizes across the different Series are not aligned. So before splitting up the dataframe into N pieces, Polars first <a href="https://github.com/pola-rs/polars/blob/main/polars/polars-core/src/utils/mod.rs#L186">aligns the chunks</a> by combining them <a href="https://github.com/pola-rs/polars/blob/main/polars/polars-core/src/frame/mod.rs#L483C27-L483C27">into a single chunk</a> before splitting them into N chunks. This process is shown in the diagram below.</p>
+<img src="../assets/align_chunks.png" width="80%">
+<p>After splitting the dataframe into smaller dataframes, Polars then <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/hashing/vector_hasher.rs#L462">uses Rayon to parallelize computing the hashes</a>.</p>
+<h3 id="building-the-hash-table"><a class="header" href="#building-the-hash-table">Building the Hash Table</a></h3>
+<p>After computing the hashes, we are finally ready to build the hash table. In Polars, the hash table’s type is <code>HashMap&lt;IdxHash, Vec&lt;Idx&gt;</code> where <code>IdxHash</code> is:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct IdxHash {
+    // idx in row of Series, DataFrame
+    pub idx: IdxSize,
+    // precomputed hash of T
+    pub hash: u64,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>HashMap</code> stores indices instead of entire rows because it’s cheaper. It uses <code>IdxHash</code> as the key instead of Idx because different sets of join keys can have the same hash but different values. Thus, the hashmap stores both the hash and the index of the first unique row keys it encounters. When writing to the hash table, if the hash matches, it needs to <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/groupby/hashing.rs#L203">compare the df rows</a> to check if the join keys are the same.</p>
+<p><strong>Splitting Data to Multiple Threads</strong></p>
+<p>To speed things up, Polars parallelizes the construction of the hash table.</p>
+<p>But as stated in Ritchie’s <a href="https://www.ritchievink.com/blog/2021/02/28/i-wrote-one-of-the-fastest-dataframe-libraries/">blog</a>, we cannot simply split up the data amongst the threads. This is because the same keys may end up in different hash tables on different threads. This approach would require another synchronization phase to combine all the hash tables which is expensive.</p>
+<p>Another approach is to split the data and wrap the hash table around a Mutex. Each thread would then acquire a lock before writing to the hash table. This is illustrated in Ritchie’s diagram:</p>
+<img src="../assets/hash_join_with_mutex.png" width="80%">
+<p>This is not a good solution because the threads would be contending over the lock.</p>
+<p>Instead, Polars uses a lock-free mechanism. Every thread would loop over the hashes. But depending on the hash value, each thread determines whether to add the hash into its hash map. This is determined by whether <code>hash value % thread number = 0</code>. This trick guarantees that all keys with the same value will end up in the same hash table. This technique is illustrated in Ritchie’s diagram:</p>
+<img src="../assets/hash_join_thread_modulo.png" width="80%">
+<p>Performing modulo on each hash may be expensive, especially for longer hashes. Polars avoid this by using a bitwise operation hack. This is the bitwise operation it performs:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>(h.wrapping_add(thread_no)) &amp; n_partitions.wrapping_sub(1) == 0
+<span class="boring">}</span></code></pre></pre>
+<p>This optimization only works if <code>n_partitions</code> is a power of 2. This leverages the mathematical property that <code>n % 2^i = n &amp; (2^i - 1)</code>. The <code>n_paritions</code> is computed with <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/utils/mod.rs#L31">this method</a> which computes the closest 2^n above the number of threads.</p>
+<h3 id="probe-phase"><a class="header" href="#probe-phase">Probe Phase</a></h3>
+<p>In the probe phase, Polars iterates through the hashes of the probe table. If there is a corresponding entry in the hash table, the indices for both tables are added to the result set. This forms a tuple of two lists with the same length: <code>(Vec&lt;IdxSize&gt;, Vec&lt;IdxSize&gt;)</code>. Each list represents indices in its respective table.</p>
+<p>Polars also <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L202">uses Rayon to parallelize</a> the probe phase. It divides the hashes for the probe table into N slices where N is the number of available threads.</p>
+<h3 id="constructing-the-final-table"><a class="header" href="#constructing-the-final-table"><strong>Constructing the final table</strong></a></h3>
+<img src="../assets/hash_join_probing_phase.png" width="80%">
+<p>The probe phase generates a pair of join indices, as shown above. The final phase is to convert the join indices into the final dataframe.</p>
+<p>Polars <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/mod.rs#L1733">parallelizes the work</a> to filter each column by the indices. Each <code>ChunkedArray</code> may not store all its data in a single chunk. Therefore, when performing <code>.get(idx)</code>, we need to first compute which chunk it lives in, then compute the relative index for that chunk. The logic to compute the <code>chunk_idx</code> and the actual <code>idx</code> is in <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/utils/mod.rs#L865">this function</a>.</p>
+<p>After filtering each column by the indices, the columns can finally be composed together to form the final dataframe.</p>
+<h3 id="code-references"><a class="header" href="#code-references">Code References:</a></h3>
+<p>The entry point to Join is <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-ops/src/frame/join/mod.rs#L67">here</a>. For <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-ops/src/frame/join/mod.rs#L250">inner join</a>, it <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-ops/src/frame/join/mod.rs#L254">calls</a> <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L178">_inner_join_multiple_keys</a> to compute the join indices. That method first <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L187">splits the df</a>. It then <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L190C54-L190C54">computes the hashes</a> in parallel.</p>
+<p>Next, it <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L194">creates the probe table</a>. During construction of the probe table, it loops over each hash and <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L57">determines if the hash belongs to the thread</a>. If it is, it <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L59">adds it</a> to the local hash table.</p>
+<p>After creating the probe table, it <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L202">probes the other relation</a> to create the join indices. Finally, it <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-ops/src/frame/join/mod.rs#L264">constructs the final table</a> with the indices.</p>
 
                     </main>
 

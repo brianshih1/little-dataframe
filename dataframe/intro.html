@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../motivation.html">Motivation</a></li><li class="chapter-item expanded affix "><a href="../polars_intro.html">Quick Introduction to Polars</a></li><li class="chapter-item expanded affix "><a href="../arrow_intro.html">What is Arrow?</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Deep Dive Into Polars</li><li class="chapter-item expanded "><a href="../chunked_array/intro.html"><strong aria-hidden="true">1.</strong> ChunkedArray</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../chunked_array/filter.html"><strong aria-hidden="true">1.1.</strong> Filter</a></li><li class="chapter-item expanded "><a href="../chunked_array/sort.html"><strong aria-hidden="true">1.2.</strong> Sort</a></li><li class="chapter-item expanded "><a href="../chunked_array/aggregate.html"><strong aria-hidden="true">1.3.</strong> Aggregate</a></li><li class="chapter-item expanded "><a href="../chunked_array/series.html"><strong aria-hidden="true">1.4.</strong> Series</a></li></ol></li><li class="chapter-item expanded "><a href="../dataframe/intro.html" class="active"><strong aria-hidden="true">2.</strong> Dataframe</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../dataframe/join.html"><strong aria-hidden="true">2.1.</strong> Join</a></li><li class="chapter-item expanded "><a href="../dataframe/groupby.html"><strong aria-hidden="true">2.2.</strong> Groupby</a></li></ol></li><li class="chapter-item expanded "><a href="../lazyframe/intro.html"><strong aria-hidden="true">3.</strong> LazyFrame</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../lazyframe/predicate_pushdown.html"><strong aria-hidden="true">3.1.</strong> Predicate Pushdown</a></li><li class="chapter-item expanded "><a href="../lazyframe/projection_pushdown.html"><strong aria-hidden="true">3.2.</strong> Projection Pushdown</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../motivation.html">Motivation</a></li><li class="chapter-item expanded affix "><a href="../polars_intro.html">Quick Introduction to Polars</a></li><li class="chapter-item expanded affix "><a href="../arrow_intro.html">What is Arrow?</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Deep Dive Into Polars</li><li class="chapter-item expanded "><a href="../chunked_array/intro.html"><strong aria-hidden="true">1.</strong> ChunkedArray</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../chunked_array/filter.html"><strong aria-hidden="true">1.1.</strong> Filter</a></li><li class="chapter-item expanded "><a href="../chunked_array/sort.html"><strong aria-hidden="true">1.2.</strong> Sort</a></li><li class="chapter-item expanded "><a href="../chunked_array/aggregate.html"><strong aria-hidden="true">1.3.</strong> Aggregate</a></li></ol></li><li class="chapter-item expanded "><a href="../dataframe/intro.html" class="active"><strong aria-hidden="true">2.</strong> Dataframe</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../dataframe/join.html"><strong aria-hidden="true">2.1.</strong> Join</a></li><li class="chapter-item expanded "><a href="../dataframe/groupby.html"><strong aria-hidden="true">2.2.</strong> Groupby</a></li></ol></li><li class="chapter-item expanded "><a href="../lazyframe/intro.html"><strong aria-hidden="true">3.</strong> LazyFrame</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../lazyframe/predicate_pushdown.html"><strong aria-hidden="true">3.1.</strong> Predicate Pushdown</a></li><li class="chapter-item expanded "><a href="../lazyframe/projection_pushdown.html"><strong aria-hidden="true">3.2.</strong> Projection Pushdown</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -143,12 +143,37 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="dataframe"><a class="header" href="#dataframe">Dataframe</a></h1>
+<p>A <a href="https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/index.html">DataFrame</a> is a two-dimensional data structure that holds tabular data. Operations that can be executed on DataFrame are similar to what SQL queries do on tables. You can perform joins, groupby, and more queries.</p>
+<p>A dataframe is composed of a collection of <code>Series</code> of the same length.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct DataFrame {
+    pub columns: Vec&lt;Series&gt;,
+		...
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Each Series is just a wrapper around a <code>ChunkedArray</code>. In fact, most of the time, implementations of <code>Series</code> look something like this:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub(crate) struct SeriesWrap&lt;T&gt;(pub T);
+<span class="boring">}</span></code></pre></pre>
+<p>where T is the ChunkedArray.</p>
+<p>Here is how you can create a dataframe:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let df = df![
+    &quot;name&quot; =&gt; [&quot;a&quot;, &quot;b&quot;,&quot;a&quot;, &quot;b&quot;, &quot;c&quot;],
+    &quot;points&quot; =&gt; [1, 2, 1, 3, 3],
+    &quot;age&quot; =&gt; [1, 2, 3, 4, 5]
+];
+<span class="boring">}</span></code></pre></pre>
+<p>Now that we know what a dataframe is, let’s look at how <code>Join</code> and <code>Groupby</code> are implemented.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../chunked_array/series.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../chunked_array/aggregate.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -162,7 +187,7 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../chunked_array/series.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../chunked_array/aggregate.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
