@@ -143,6 +143,82 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="lazyframe"><a class="header" href="#lazyframe">LazyFrame</a></h1>
+<p>Polars recommends using the Lazy API when dealing with performance-critical code. Unlike the eager API, the lazy API defers the execution until the end which allows Polars to perform query optimizations.</p>
+<p>Here is an example of the lazy API:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>df
+  .lazy()
+  .filter(col(&quot;age&quot;).gt(lit(25)))
+  .groupby(vec![&quot;team&quot;])
+  .agg(vec![col(&quot;points&quot;).sum()])
+  .collect();
+<span class="boring">}</span></code></pre></pre>
+<p>All lazy queries begin with the <code>lazy()</code> method. The execution of the query is delayed until <code>collect</code> is called. During execution, Polars first rearranges the query with optimizations like predicate pushdown, projection pushdown, type coercion, etc before actually executing the operations. Check out the <a href="https://pola-rs.github.io/polars-book/user-guide/lazy/optimizations/">list of optimizations</a> used by Polars.</p>
+<h3 id="lazyframe-and-logicalplan"><a class="header" href="#lazyframe-and-logicalplan">LazyFrame and LogicalPlan</a></h3>
+<p>When <code>lazy()</code> is called, the dataframe is converted to a <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/src/frame/mod.rs#L68">LazyFrame</a>.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct LazyFrame {
+    pub logical_plan: LogicalPlan,
+		...
+}
+<span class="boring">}</span></code></pre></pre>
+<p><code>LazyFrame</code> is just an abstraction around <a href="https://github.com/pola-rs/polars/blob/main/polars/polars-lazy/polars-plan/src/logical_plan/mod.rs#L134">LogicalPlan</a>. A <code>LogicalPlan</code> is an enum of transformations that makes up a query.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum LogicalPlan {
+		Selection {
+        input: Box&lt;LogicalPlan&gt;,
+        predicate: Expr,
+    },
+		Join {
+        input_left: Box&lt;LogicalPlan&gt;,
+        input_right: Box&lt;LogicalPlan&gt;,
+        left_on: Vec&lt;Expr&gt;,
+        right_on: Vec&lt;Expr&gt;,
+				..
+    },
+		...
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Operations like <code>filter</code>, <code>select</code>, <code>join</code>, etc creates the LogicalPlans.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>lf.filter(col(&quot;age&quot;).gt(lit(25)))
+<span class="boring">}</span></code></pre></pre>
+<p>For example, here is a simplified implementation of <code>filter</code>:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl LazyFrame {
+		pub fn filter(self, predicate: Expr) -&gt; LazyFrame {
+			let lp = LogicalPlan::Selection {
+				input: Box::new(self.logical_plan),
+				predicate
+			};
+			LazyFrame::from_logical_plan(lp)
+		}
+}
+<span class="boring">}</span></code></pre></pre>
+<p>If you want to look at the <code>logical_plan</code> constructed by your query, you can perform:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>lazy_frame.logical_plan.describe()
+<span class="boring">}</span></code></pre></pre>
+<h3 id="optimization"><a class="header" href="#optimization">Optimization</a></h3>
+<p>When <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/src/frame/mod.rs#L547">collect</a> is called, it will optimize and <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/src/frame/mod.rs#L501">rearrange the logical plan</a>. The optimized <code>logical_plan</code> will then be <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/src/frame/mod.rs#L525">converted</a> to a <code>physical_plan</code>. A physical plan is an <code>[Executor](&lt;https://github.com/pola-rs/polars/blob/main/polars/polars-lazy/src/physical_plan/executors/executor.rs#L10&gt;)</code> that can generate a dataframe. For example, here is the <a href="https://github.com/pola-rs/polars/blob/main/polars/polars-lazy/src/physical_plan/executors/filter.rs#L10">physical plan</a> for filter and here is the function that converts a <a href="https://github.com/pola-rs/polars/blob/main/polars/polars-lazy/src/physical_plan/planner/lp.rs#L142">logical plan</a> to a physical plan.</p>
+<p>If you want to look at the optimized logical plan, you can perform:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>lazy_frame.describe_optimized_plan()
+<span class="boring">}</span></code></pre></pre>
+<p>You can also turn each optimizers on and off like this:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>lf.with_predicate_pushdown(true)
+        .describe_optimized_plan()
+<span class="boring">}</span></code></pre></pre>
+<p>In the remaining sections, we will deep dive into a couple of optimizations Polars uses.</p>
 
                     </main>
 

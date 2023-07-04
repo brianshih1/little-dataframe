@@ -143,6 +143,162 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="predicate-pushdown"><a class="header" href="#predicate-pushdown">Predicate Pushdown</a></h1>
+<p>A logical plan in Polars has a tree-like structure. Each node represents a query operation. During execution, the child nodes get executed first before the parent nodes do.</p>
+<p>Predicate pushdown is an optimization technique to push the filtering operations (predicates) down the tree, closer to the source. The idea is that the earlier we apply the filter conditions during execution, the less data we have to process.</p>
+<p>For example, suppose we have the query:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>df
+  .lazy()
+  .select([col(&quot;A&quot;), col(&quot;B&quot;)])
+  .filter(col(&quot;A&quot;).gt(lit(1)));
+<span class="boring">}</span></code></pre></pre>
+<p>Here is the original logical plan:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>FILTER [(col(&quot;A&quot;)) &gt; (1)] 
+	FROM SELECT [col(&quot;A&quot;), [(col(&quot;B&quot;)) + (2)]] 
+		FROM DF [&quot;A&quot;, &quot;fruits&quot;, &quot;B&quot;, &quot;cars&quot;]; 
+			PROJECT */4 COLUMNS; 
+			SELECTION: &quot;None&quot;
+<span class="boring">}</span></code></pre></pre>
+<p>Here is the optimized plan:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>SELECT [col(&quot;A&quot;), [(col(&quot;B&quot;)) + (2)]]
+	FROM DF [&quot;A&quot;, &quot;fruits&quot;, &quot;B&quot;, &quot;cars&quot;]; 
+		PROJECT 2/4 COLUMNS; 
+		SELECTION: [(col(&quot;A&quot;)) &gt; (1)]
+<span class="boring">}</span></code></pre></pre>
+<p>By pushing the predicate, <code>col(&quot;A&quot;) &gt; 1</code> down to the dataframe operation, we avoid having to fetch and process all the rows that don’t fit the condition.</p>
+<h3 id="algorithm"><a class="header" href="#algorithm">Algorithm</a></h3>
+<p>The core algorithm is really simple. Here is a pseudo-code of the algorithm:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn optimize(logical_plan) -&gt; logical_plan {
+	let acc_predicates = EMPTY_COLLECTION
+	push_down(logical_plan, acc_predicates)
+}
+
+fn push_down(logical_plan, acc_predicates) -&gt; logical_plan {
+	match logical_plan {
+		LogicalPlan::Selection { predicate, input } =&gt; {
+			acc_predicates.add(predicate)
+			push_down(input, acc_predicates)
+		},
+		
+		LogicalPlan::DataFrameScan { df, selection } =&gt; {
+			LogicalPlan::DataFrameScan {
+				df,
+				selection: combine_predicates(selection, acc_predicates)
+			}
+		}
+	}
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>optimize</code> function takes a logical plan and returns an optimized logical plan. It starts off by initializing an empty collection of predicates. It then recursively calls <code>push_down</code> to compute the optimized logical plan for its children.</p>
+<p>When <code>lazy_frame.filter(predicate)</code> is called, a <code>LogicalPlan::Selection</code> is created with the <code>lazy_frame</code> becoming the <code>input</code> of the <code>Selection</code>. When <code>push_down</code> encounters a <code>LogicalPlan::Selection</code>, the algorithm adds the predicate to the <code>acc_predicates</code> and returns <code>pushdown(input, acc_predicates</code>. In other words, we removed the <code>Selection</code> operation since we pushed down its predicate.</p>
+<p>When <code>df.lazy()</code> is called, it actually creates a <code>LogicalPlan::DataFrameScan</code>. This is the leaf node in a logical plan. When a <code>push_down</code> reaches a <code>DataFrameScan</code> node, it adds the <code>acc_predicates</code> to the <code>DataFrameScan</code> node.</p>
+<p>If you want to look at Polars code, <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L646">here</a> is the <code>optimize</code> function. We can see that it <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L653C18-L653C18">calls <code>push_down</code></a> on the root logical plan. Each time the traversal <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L191">encounters any <code>LogicalPlan::Selection</code></a> it’s <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L197">added to the accumulated predicates</a> and <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L206">replaced with the pushed down version of its child</a>.</p>
+<h3 id="pushdown--join"><a class="header" href="#pushdown--join">Pushdown + Join</a></h3>
+<p>Join is trickier since it has the left and the right logical plans. For each accumulated predicates, we need to figure out whether to push it to the left plan, right plan, or neither.</p>
+<p>Let’s look at an example:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let df1 = df![
+  &quot;foo&quot; =&gt; [&quot;abc&quot;, &quot;def&quot;, &quot;ghi&quot;],
+  &quot;idx1&quot; =&gt; [0, 0, 1],
+  &quot;a&quot; =&gt; [1,2, 3]
+];
+let df2 = df![
+  &quot;bar&quot; =&gt; [5, 6],
+  &quot;idx2&quot; =&gt; [0, 1],
+  &quot;b&quot; =&gt; [1, 2]
+];
+
+lf
+  .lazy()
+  .join(df2.lazy(), [col(&quot;idx1&quot;)], [col(&quot;idx2&quot;)], JoinType::Inner)
+  .filter(col(&quot;bar&quot;).eq(lit(5i32)))
+  .filter(col(&quot;foo&quot;).eq(lit(&quot;abc&quot;)))
+  .filter((col(&quot;a&quot;) + col(&quot;b&quot;)).gt(lit(12)));
+<span class="boring">}</span></code></pre></pre>
+<p>In this example, we have a join on <code>idx1</code> of <code>df1</code> and <code>idx2</code> of <code>df2</code>. We have 3 filter conditions:</p>
+<ul>
+<li><strong>predicate 1</strong>: <code>col(”bar”) = 5</code>, the <code>“bar”</code> column belongs to <code>df2</code></li>
+<li><strong>predicate 2</strong>: <code>col(&quot;foo&quot;) = &quot;abc&quot;</code>, the <code>&quot;foo&quot;</code> column belongs to df1</li>
+<li><strong>predicate 3</strong>: <code>col(&quot;a&quot;) + col(&quot;b&quot;) &gt; 12</code>, the <code>&quot;a&quot;</code> column belongs to <code>df1</code> but the <code>&quot;b&quot;</code> column belongs to <code>df2</code>.</li>
+</ul>
+<p>Here is the logical plan:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>FILTER [([(col(&quot;a&quot;)) + (col(&quot;b&quot;))]) &gt; (12)] 
+	FROM FILTER [(col(&quot;foo&quot;)) == (Utf8(abc))] 
+		FROM FILTER [(col(&quot;bar&quot;)) == (5)] 
+			FROM INNER JOIN:
+				LEFT PLAN ON: [col(&quot;idx1&quot;)]
+				  DF [&quot;foo&quot;, &quot;idx1&quot;, &quot;a&quot;]; PROJECT */3 COLUMNS; SELECTION: &quot;None&quot;
+				RIGHT PLAN ON: [col(&quot;idx2&quot;)]
+				  DF [&quot;bar&quot;, &quot;idx2&quot;, &quot;b&quot;]; PROJECT */3 COLUMNS; SELECTION: &quot;None&quot;
+			END INNER JOIN
+<span class="boring">}</span></code></pre></pre>
+<p>Here is the optimized plan:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>FILTER [([(col(&quot;a&quot;)) + (col(&quot;b&quot;))]) &gt; (12)]
+FROM
+  INNER JOIN:
+    LEFT PLAN ON: [col(&quot;idx1&quot;)]
+      DF [&quot;foo&quot;, &quot;idx1&quot;, &quot;a&quot;];
+		    PROJECT */3 COLUMNS;
+		    SELECTION: &quot;[(col(\\&quot;foo\\&quot;)) == (Utf8(abc))]&quot;
+
+    RIGHT PLAN ON: [col(&quot;idx2&quot;)]
+      DF [&quot;bar&quot;, &quot;idx2&quot;, &quot;b&quot;];
+		    PROJECT */3 COLUMNS;
+		    SELECTION: [(col(&quot;bar&quot;)) == (5)]
+END INNER JOIN
+<span class="boring">}</span></code></pre></pre>
+<p>We can see that <code>predicate 1</code> has been pushed down to <code>df2</code>, <code>predicate 2</code> has been pushed down to <code>df1</code>. <code>predicate 3</code> has not been pushed down to either since it uses columns from both children.</p>
+<p>In simple terms, for each predicate, the algorithm checks if all the columns used in that predicate belongs to either the left or right child. If it is, it can be pushed down. Otherwise, it needs to be applied locally.</p>
+<p><a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L392">Here</a> is the code for how Polars deals with <code>Join</code> during <code>push_down</code>. <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L407">For each predicate</a>, Polars checks <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L448">if it can be pushed down to the left subtree</a> or the <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L460">right subtree</a>. <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L478">If neither, it is pushed to the local_predicates</a>. In that case, the local predicates are <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L40">wrapped around a Selection logical plan</a> instead of being pushed down.</p>
+<h3 id="pushdown-boundaries"><a class="header" href="#pushdown-boundaries">Pushdown Boundaries</a></h3>
+<p>The algorithm described above mishandles some edge cases. There are scenarios where pushing down predicates is not allowed. In those cases, we need to apply the predicates locally.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let df = df![
+    &quot;vals&quot; =&gt; [1, 2, 3, 4, 5]
+]
+.unwrap();
+
+let lazy_df = df
+  .lazy()
+  .filter(col(&quot;vals&quot;).gt(lit(1)))
+  // should be &gt; 2
+  // if optimizer would combine predicates this would be flawed
+  .filter(col(&quot;vals&quot;).gt(col(&quot;vals&quot;).min()));
+<span class="boring">}</span></code></pre></pre>
+<p>This example is borrowed from one of the unit tests in Polars. In this example, we first filter out elements that are ≤ to 1. Then we filter out elements that are ≤ to the minimum of the remaining elements, which is <code>2</code>. The result from this would be:</p>
+<p>If we combined the two predicates, we would get the following filter operation</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>.filter(
+	col(&quot;vals&quot;).gt(lit(1))
+		.and(
+			col(&quot;vals&quot;).gt(col(&quot;vals&quot;).min())
+		)
+);
+<span class="boring">}</span></code></pre></pre>
+<p>This would yield the wrong answer because <code>2</code> would be in the final output whereas it wouldn’t before the predicates are combined. This is because the first predicate affects the elements that are available to the <code>min()</code> operation.</p>
+<p>In general, predicates should not be projected downwards if it influences the results of other columns.</p>
+<p>In this example, the logical plan is:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>FILTER [(col(&quot;vals&quot;)) &gt; (col(&quot;vals&quot;).min())]
+	FROM FILTER [(col(&quot;vals&quot;)) &gt; (1)]
+		FROM DF [&quot;vals&quot;]; PROJECT */1 COLUMNS; SELECTION: &quot;None&quot;
+<span class="boring">}</span></code></pre></pre>
+<p>The optimized plan is:</p>
 
                     </main>
 

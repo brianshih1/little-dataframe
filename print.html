@@ -144,7 +144,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="motivation"><a class="header" href="#motivation">Motivation</a></h1>
-<p>I recently spent a lot of time exploring the internals of <a href="https://github.com/pola-rs/polars">Polars</a>, the lightning-fast DataFrame library built on top of <a href="https://github.com/jorgecarleitao/arrow2">Arrow2</a>. I also built my own toy DataFrame library (<a href="https://github.com/brianshih1/mini-dataframe">full source code available</a>) to make sure I understand the material better. I reused the same abstractions/APIs and reimplemented many algorithms from Polars.</p>
+<p>I recently spent a lot of time exploring the internals of <a href="https://github.com/pola-rs/polars">Polars</a>, the lightning-fast DataFrame library built on top of <a href="https://github.com/jorgecarleitao/arrow2">Arrow2</a>. I also built my own toy DataFrame library (<a href="https://github.com/brianshih1/mini-dataframe">full source code available</a>) to make sure I understand the material better. I reused the same abstractions/APIs and reimplemented many algorithms used in Polars.</p>
 <p>It all started when I came across a <a href="https://www.ritchievink.com/blog/2021/02/28/i-wrote-one-of-the-fastest-dataframe-libraries/">blog post</a> by Ritchie Vink, the creator of Polars, titled &quot;I wrote one of the fastest DataFrame libraries.&quot; The post highlighted Polars' impressive performance in benchmarks. I was inspired and wanted to see for myself what makes the library so fast.</p>
 <p>Here are some screenshots from the <a href="https://duckdb.org/2023/04/14/h2oai.html#results">recent h20.ai benchmark</a> for groupby queries conducted by DuckDB to showcase how fast Polars is.</p>
 <img src="./assets/benchmark.png" width="80%">
@@ -362,8 +362,350 @@ validity.extend_constant(null_count, false);
 <p>Next, it <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L194">creates the probe table</a>. During construction of the probe table, it loops over each hash and <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L57">determines if the hash belongs to the thread</a>. If it is, it <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L59">adds it</a> to the local hash table.</p>
 <p>After creating the probe table, it <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/hash_join/multiple_keys.rs#L202">probes the other relation</a> to create the join indices. Finally, it <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-ops/src/frame/join/mod.rs#L264">constructs the final table</a> with the indices.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="groupby"><a class="header" href="#groupby">Groupby</a></h1>
+<p>GroupBy is an operation that allows people to group records based on certain attributes and perform aggregations on those groups. It is often used in combination with aggregate functions like <code>SUM</code>, <code>COUNT</code>, etc to summarize information for each group.</p>
+<p>Here’s an example of <code>GroupBy</code>:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let df = df![
+    &quot;name&quot; =&gt; [&quot;a&quot;, &quot;b&quot;,&quot;a&quot;, &quot;b&quot;, &quot;c&quot;],
+    &quot;points&quot; =&gt; [1, 2, 1, 3, 3]
+]
+let res = df
+  .lazy()
+  .groupby(vec![&quot;name&quot;])
+  .agg(vec![col(&quot;points&quot;).sum()])
+  .collect();
+<span class="boring">}</span></code></pre></pre>
+<p>In this example, we group rows by the <code>name</code> column and aggregate the <code>sum</code> for each group. This would yield the dataframe:</p>
+<div float="left" margin-left="0">
+<div class="table-wrapper"><table><thead><tr><th style="text-align: left">name</th><th style="text-align: left">points</th></tr></thead><tbody>
+<tr><td style="text-align: left">a</td><td style="text-align: left">2</td></tr>
+<tr><td style="text-align: left">b</td><td style="text-align: left">5</td></tr>
+<tr><td style="text-align: left">c</td><td style="text-align: left">3</td></tr>
+</tbody></table>
+</div></div>
+<h3 id="groupproxy"><a class="header" href="#groupproxy">GroupProxy</a></h3>
+<p>When developers perform <code>df.groupby(...)</code>, they actually get back a <code>GroupProxy</code>, a temporary data structure that stores information about which rows belong to which groups. The most common variant of GroupProxy is GroupsIdx. This is its definition:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct GroupsIdx {
+    first: Vec&lt;u32&gt;,
+    all: Vec&lt;Vec&lt;u32&gt;&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The indices of the rows belonging to the same group are stored together in the <code>all</code> vectors. The first index of each group is stored in the <code>first</code> vector.</p>
+<p>If we look at the example:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let df = df![
+    &quot;name&quot; =&gt; [&quot;a&quot;, &quot;b&quot;,&quot;a&quot;, &quot;b&quot;, &quot;c&quot;],
+    &quot;points&quot; =&gt; [1, 2, 1, 3, 3]
+]
+let group_idx = df
+  .lazy()
+  .groupby(vec![&quot;name&quot;]);
+<span class="boring">}</span></code></pre></pre>
+<p>In the example provided above, the <code>GroupIdx</code> is:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>{
+	first: [0, 1, 4],
+	all: [
+		[0, 2], // indices of rows with col(&quot;name&quot;) = &quot;a&quot;
+		[1, 3], // indices of rows with col(&quot;name&quot;) = &quot;b&quot; 
+		[4].    // indices of rows with col(&quot;name&quot;) = &quot;c&quot;
+	]
+}
+<span class="boring">}</span></code></pre></pre>
+<p>If there are multiple <code>groupby</code> keys, the same logic applies:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let df = df![
+    &quot;name&quot; =&gt; [&quot;a&quot;, &quot;b&quot;,&quot;a&quot;, &quot;b&quot;, &quot;c&quot;],
+    &quot;points&quot; =&gt; [1, 2, 1, 3, 3]
+]
+.unwrap();
+let groupby = df.groupby(vec![&quot;name&quot;, &quot;points&quot;]).unwrap();
+<span class="boring">}</span></code></pre></pre>
+<p>In this example, the <code>GroupProxy</code> is:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>{
+	first: [0, 1, 3, 4],
+	all: [
+		[0, 2], // indices where col(&quot;name&quot;) = &quot;a&quot; &amp; col(&quot;points&quot;) = 1
+		[1],    // indices where col(&quot;name&quot;) = &quot;b&quot; &amp; col(&quot;points&quot;) = 2
+		[3],    // indices where col(&quot;name&quot;) = &quot;b&quot; &amp; col(&quot;points&quot;) = 3
+		[4]     // indices where col(&quot;name&quot;) = &quot;c&quot; &amp; col(&quot;points&quot;) = 3
+	]
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="hash-group-by"><a class="header" href="#hash-group-by">Hash Group By</a></h3>
+<p>Polars uses hash group by to compute the GroupProxy for a dataframe given a set of group keys. This is very similar to the parallel hash join algorithm presented earlier. The overall idea is to use a hash table to group indices with the same group by keys.</p>
+<p>Polars first computes the hashes for the <code>by</code> columns with the vectorized hashing technique that Hash Join uses.</p>
+<p>Next, Polars parallelizes the creation of hash tables with the same modulo trick mentioned in the <a href="https://brianshih1.github.io/mini-dataframe/dataframe/join.html">last section</a>. Every thread traverses all hashes and ignores the ones that doesn’t belong to that thread.</p>
+<p>Instead of storing the indices inside the hash table, the hash table stores the index of the <code>all</code> vector. The algorithm <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/frame/groupby/hashing.rs#L500">iterates through the hashes</a>. If there is a matching entry in the hash table for a group key, it uses the index stored in the hash table to find the other indices in the same group in <code>all</code> and <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/frame/groupby/hashing.rs#L527">adds itself to it</a>. Otherwise, it adds a new entry to the hash table and <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/frame/groupby/hashing.rs#L518">adds itself to the <code>first</code> and <code>all</code> vectors</a>.</p>
+<p>Given the earlier example:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let df = df![
+    &quot;name&quot; =&gt; [&quot;a&quot;, &quot;b&quot;,&quot;a&quot;, &quot;b&quot;, &quot;c&quot;],
+    &quot;points&quot; =&gt; [1, 2, 1, 3, 3]
+]
+let res = df
+  .lazy()
+  .groupby(vec![&quot;name&quot;])
+<span class="boring">}</span></code></pre></pre>
+<p>The figure below shows that the hash table stores the indices that correspond to the <code>first</code> and <code>all</code> tables.</p>
+<img src="dataframe/../assets/groupby_hashing.png" width="80%">
+<h3 id="parallel-flattening"><a class="header" href="#parallel-flattening">Parallel Flattening</a></h3>
+<p>Since Polars parallelizes the grouping of rows, each thread creates a <code>first</code> and <code>all</code> vector. Thus, we end up with <code>Vec&lt;(Vec&lt;IdxSize&gt;, Vec&lt;Vec&lt;IdxSize&gt;&gt;)&gt;</code>. To create the <code>GroupProxy</code>, we need to <a href="https://github.com/pola-rs/polars/blob/f566963f526a11585805088c96e579045a0a2b79/polars/polars-core/src/frame/groupby/hashing.rs#L19">flatten the vector</a>.</p>
+<p>The goal of flattening is to turn <code>Vec&lt;Vec&lt;...&gt;&gt;</code> into <code>Vec&lt;...&gt;</code>. Copying the elements one by one into the output vector may be slow when the number of elements is large. Polars utilizes available threads to flatten the array in parallel.</p>
+<p>Polars guarantees that the output vector will not reallocate by <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/frame/groupby/proxy.rs#L60">initializing the output vector’s capacity to the exact size it will end up in</a>. This makes it safe to parallelize the copying of individual vectors into the output vector. The capacity can be computed by <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/frame/groupby/proxy.rs#L51">summing up the sizes of the smaller vectors</a>.</p>
+<p>Each smaller vector needs to know the address to copy the values into. The offsets are <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/frame/groupby/proxy.rs#L52">pre-computed</a> and the final address is derived from: <code>first.as_mut_ptr().add(offset)</code>.</p>
+<p>In Rust, mutable pointers does not implement the <code>Sync</code> trait so Rust will complain that <code>*mut u32</code> cannot be shared between threads safely when using <code>Rayon</code>. Polars <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/frame/groupby/proxy.rs#L61">wraps the mutable pointer with a <code>SyncPtr</code> struct</a>. The <code>SyncPtr</code> struct allows sending pointers to other threads when the developer is confident that the pointer will point to valid address.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct SyncPtr&lt;T&gt;(*mut T);
+unsafe impl&lt;T&gt; Sync for SyncPtr&lt;T&gt; {}
+unsafe impl&lt;T&gt; Send for SyncPtr&lt;T&gt; {}
+<span class="boring">}</span></code></pre></pre>
+<p>Finally, Polars uses <code>std::ptr::copy_nonoverlapping</code> to <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/frame/groupby/proxy.rs#L73">copy value from the smaller Vecs to the new Vec</a>.</p>
+<p>I will talk about how Groupby is composed with aggregate functions in the LazyFrame section.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="lazyframe"><a class="header" href="#lazyframe">LazyFrame</a></h1>
+<p>Polars recommends using the Lazy API when dealing with performance-critical code. Unlike the eager API, the lazy API defers the execution until the end which allows Polars to perform query optimizations.</p>
+<p>Here is an example of the lazy API:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>df
+  .lazy()
+  .filter(col(&quot;age&quot;).gt(lit(25)))
+  .groupby(vec![&quot;team&quot;])
+  .agg(vec![col(&quot;points&quot;).sum()])
+  .collect();
+<span class="boring">}</span></code></pre></pre>
+<p>All lazy queries begin with the <code>lazy()</code> method. The execution of the query is delayed until <code>collect</code> is called. During execution, Polars first rearranges the query with optimizations like predicate pushdown, projection pushdown, type coercion, etc before actually executing the operations. Check out the <a href="https://pola-rs.github.io/polars-book/user-guide/lazy/optimizations/">list of optimizations</a> used by Polars.</p>
+<h3 id="lazyframe-and-logicalplan"><a class="header" href="#lazyframe-and-logicalplan">LazyFrame and LogicalPlan</a></h3>
+<p>When <code>lazy()</code> is called, the dataframe is converted to a <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/src/frame/mod.rs#L68">LazyFrame</a>.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct LazyFrame {
+    pub logical_plan: LogicalPlan,
+		...
+}
+<span class="boring">}</span></code></pre></pre>
+<p><code>LazyFrame</code> is just an abstraction around <a href="https://github.com/pola-rs/polars/blob/main/polars/polars-lazy/polars-plan/src/logical_plan/mod.rs#L134">LogicalPlan</a>. A <code>LogicalPlan</code> is an enum of transformations that makes up a query.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum LogicalPlan {
+		Selection {
+        input: Box&lt;LogicalPlan&gt;,
+        predicate: Expr,
+    },
+		Join {
+        input_left: Box&lt;LogicalPlan&gt;,
+        input_right: Box&lt;LogicalPlan&gt;,
+        left_on: Vec&lt;Expr&gt;,
+        right_on: Vec&lt;Expr&gt;,
+				..
+    },
+		...
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Operations like <code>filter</code>, <code>select</code>, <code>join</code>, etc creates the LogicalPlans.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>lf.filter(col(&quot;age&quot;).gt(lit(25)))
+<span class="boring">}</span></code></pre></pre>
+<p>For example, here is a simplified implementation of <code>filter</code>:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl LazyFrame {
+		pub fn filter(self, predicate: Expr) -&gt; LazyFrame {
+			let lp = LogicalPlan::Selection {
+				input: Box::new(self.logical_plan),
+				predicate
+			};
+			LazyFrame::from_logical_plan(lp)
+		}
+}
+<span class="boring">}</span></code></pre></pre>
+<p>If you want to look at the <code>logical_plan</code> constructed by your query, you can perform:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>lazy_frame.logical_plan.describe()
+<span class="boring">}</span></code></pre></pre>
+<h3 id="optimization"><a class="header" href="#optimization">Optimization</a></h3>
+<p>When <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/src/frame/mod.rs#L547">collect</a> is called, it will optimize and <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/src/frame/mod.rs#L501">rearrange the logical plan</a>. The optimized <code>logical_plan</code> will then be <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/src/frame/mod.rs#L525">converted</a> to a <code>physical_plan</code>. A physical plan is an <code>[Executor](&lt;https://github.com/pola-rs/polars/blob/main/polars/polars-lazy/src/physical_plan/executors/executor.rs#L10&gt;)</code> that can generate a dataframe. For example, here is the <a href="https://github.com/pola-rs/polars/blob/main/polars/polars-lazy/src/physical_plan/executors/filter.rs#L10">physical plan</a> for filter and here is the function that converts a <a href="https://github.com/pola-rs/polars/blob/main/polars/polars-lazy/src/physical_plan/planner/lp.rs#L142">logical plan</a> to a physical plan.</p>
+<p>If you want to look at the optimized logical plan, you can perform:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>lazy_frame.describe_optimized_plan()
+<span class="boring">}</span></code></pre></pre>
+<p>You can also turn each optimizers on and off like this:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>lf.with_predicate_pushdown(true)
+        .describe_optimized_plan()
+<span class="boring">}</span></code></pre></pre>
+<p>In the remaining sections, we will deep dive into a couple of optimizations Polars uses.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="predicate-pushdown"><a class="header" href="#predicate-pushdown">Predicate Pushdown</a></h1>
+<p>A logical plan in Polars has a tree-like structure. Each node represents a query operation. During execution, the child nodes get executed first before the parent nodes do.</p>
+<p>Predicate pushdown is an optimization technique to push the filtering operations (predicates) down the tree, closer to the source. The idea is that the earlier we apply the filter conditions during execution, the less data we have to process.</p>
+<p>For example, suppose we have the query:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>df
+  .lazy()
+  .select([col(&quot;A&quot;), col(&quot;B&quot;)])
+  .filter(col(&quot;A&quot;).gt(lit(1)));
+<span class="boring">}</span></code></pre></pre>
+<p>Here is the original logical plan:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>FILTER [(col(&quot;A&quot;)) &gt; (1)] 
+	FROM SELECT [col(&quot;A&quot;), [(col(&quot;B&quot;)) + (2)]] 
+		FROM DF [&quot;A&quot;, &quot;fruits&quot;, &quot;B&quot;, &quot;cars&quot;]; 
+			PROJECT */4 COLUMNS; 
+			SELECTION: &quot;None&quot;
+<span class="boring">}</span></code></pre></pre>
+<p>Here is the optimized plan:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>SELECT [col(&quot;A&quot;), [(col(&quot;B&quot;)) + (2)]]
+	FROM DF [&quot;A&quot;, &quot;fruits&quot;, &quot;B&quot;, &quot;cars&quot;]; 
+		PROJECT 2/4 COLUMNS; 
+		SELECTION: [(col(&quot;A&quot;)) &gt; (1)]
+<span class="boring">}</span></code></pre></pre>
+<p>By pushing the predicate, <code>col(&quot;A&quot;) &gt; 1</code> down to the dataframe operation, we avoid having to fetch and process all the rows that don’t fit the condition.</p>
+<h3 id="algorithm"><a class="header" href="#algorithm">Algorithm</a></h3>
+<p>The core algorithm is really simple. Here is a pseudo-code of the algorithm:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn optimize(logical_plan) -&gt; logical_plan {
+	let acc_predicates = EMPTY_COLLECTION
+	push_down(logical_plan, acc_predicates)
+}
+
+fn push_down(logical_plan, acc_predicates) -&gt; logical_plan {
+	match logical_plan {
+		LogicalPlan::Selection { predicate, input } =&gt; {
+			acc_predicates.add(predicate)
+			push_down(input, acc_predicates)
+		},
+		
+		LogicalPlan::DataFrameScan { df, selection } =&gt; {
+			LogicalPlan::DataFrameScan {
+				df,
+				selection: combine_predicates(selection, acc_predicates)
+			}
+		}
+	}
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>optimize</code> function takes a logical plan and returns an optimized logical plan. It starts off by initializing an empty collection of predicates. It then recursively calls <code>push_down</code> to compute the optimized logical plan for its children.</p>
+<p>When <code>lazy_frame.filter(predicate)</code> is called, a <code>LogicalPlan::Selection</code> is created with the <code>lazy_frame</code> becoming the <code>input</code> of the <code>Selection</code>. When <code>push_down</code> encounters a <code>LogicalPlan::Selection</code>, the algorithm adds the predicate to the <code>acc_predicates</code> and returns <code>pushdown(input, acc_predicates</code>. In other words, we removed the <code>Selection</code> operation since we pushed down its predicate.</p>
+<p>When <code>df.lazy()</code> is called, it actually creates a <code>LogicalPlan::DataFrameScan</code>. This is the leaf node in a logical plan. When a <code>push_down</code> reaches a <code>DataFrameScan</code> node, it adds the <code>acc_predicates</code> to the <code>DataFrameScan</code> node.</p>
+<p>If you want to look at Polars code, <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L646">here</a> is the <code>optimize</code> function. We can see that it <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L653C18-L653C18">calls <code>push_down</code></a> on the root logical plan. Each time the traversal <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L191">encounters any <code>LogicalPlan::Selection</code></a> it’s <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L197">added to the accumulated predicates</a> and <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L206">replaced with the pushed down version of its child</a>.</p>
+<h3 id="pushdown--join"><a class="header" href="#pushdown--join">Pushdown + Join</a></h3>
+<p>Join is trickier since it has the left and the right logical plans. For each accumulated predicates, we need to figure out whether to push it to the left plan, right plan, or neither.</p>
+<p>Let’s look at an example:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let df1 = df![
+  &quot;foo&quot; =&gt; [&quot;abc&quot;, &quot;def&quot;, &quot;ghi&quot;],
+  &quot;idx1&quot; =&gt; [0, 0, 1],
+  &quot;a&quot; =&gt; [1,2, 3]
+];
+let df2 = df![
+  &quot;bar&quot; =&gt; [5, 6],
+  &quot;idx2&quot; =&gt; [0, 1],
+  &quot;b&quot; =&gt; [1, 2]
+];
+
+lf
+  .lazy()
+  .join(df2.lazy(), [col(&quot;idx1&quot;)], [col(&quot;idx2&quot;)], JoinType::Inner)
+  .filter(col(&quot;bar&quot;).eq(lit(5i32)))
+  .filter(col(&quot;foo&quot;).eq(lit(&quot;abc&quot;)))
+  .filter((col(&quot;a&quot;) + col(&quot;b&quot;)).gt(lit(12)));
+<span class="boring">}</span></code></pre></pre>
+<p>In this example, we have a join on <code>idx1</code> of <code>df1</code> and <code>idx2</code> of <code>df2</code>. We have 3 filter conditions:</p>
+<ul>
+<li><strong>predicate 1</strong>: <code>col(”bar”) = 5</code>, the <code>“bar”</code> column belongs to <code>df2</code></li>
+<li><strong>predicate 2</strong>: <code>col(&quot;foo&quot;) = &quot;abc&quot;</code>, the <code>&quot;foo&quot;</code> column belongs to df1</li>
+<li><strong>predicate 3</strong>: <code>col(&quot;a&quot;) + col(&quot;b&quot;) &gt; 12</code>, the <code>&quot;a&quot;</code> column belongs to <code>df1</code> but the <code>&quot;b&quot;</code> column belongs to <code>df2</code>.</li>
+</ul>
+<p>Here is the logical plan:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>FILTER [([(col(&quot;a&quot;)) + (col(&quot;b&quot;))]) &gt; (12)] 
+	FROM FILTER [(col(&quot;foo&quot;)) == (Utf8(abc))] 
+		FROM FILTER [(col(&quot;bar&quot;)) == (5)] 
+			FROM INNER JOIN:
+				LEFT PLAN ON: [col(&quot;idx1&quot;)]
+				  DF [&quot;foo&quot;, &quot;idx1&quot;, &quot;a&quot;]; PROJECT */3 COLUMNS; SELECTION: &quot;None&quot;
+				RIGHT PLAN ON: [col(&quot;idx2&quot;)]
+				  DF [&quot;bar&quot;, &quot;idx2&quot;, &quot;b&quot;]; PROJECT */3 COLUMNS; SELECTION: &quot;None&quot;
+			END INNER JOIN
+<span class="boring">}</span></code></pre></pre>
+<p>Here is the optimized plan:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>FILTER [([(col(&quot;a&quot;)) + (col(&quot;b&quot;))]) &gt; (12)]
+FROM
+  INNER JOIN:
+    LEFT PLAN ON: [col(&quot;idx1&quot;)]
+      DF [&quot;foo&quot;, &quot;idx1&quot;, &quot;a&quot;];
+		    PROJECT */3 COLUMNS;
+		    SELECTION: &quot;[(col(\\&quot;foo\\&quot;)) == (Utf8(abc))]&quot;
+
+    RIGHT PLAN ON: [col(&quot;idx2&quot;)]
+      DF [&quot;bar&quot;, &quot;idx2&quot;, &quot;b&quot;];
+		    PROJECT */3 COLUMNS;
+		    SELECTION: [(col(&quot;bar&quot;)) == (5)]
+END INNER JOIN
+<span class="boring">}</span></code></pre></pre>
+<p>We can see that <code>predicate 1</code> has been pushed down to <code>df2</code>, <code>predicate 2</code> has been pushed down to <code>df1</code>. <code>predicate 3</code> has not been pushed down to either since it uses columns from both children.</p>
+<p>In simple terms, for each predicate, the algorithm checks if all the columns used in that predicate belongs to either the left or right child. If it is, it can be pushed down. Otherwise, it needs to be applied locally.</p>
+<p><a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L392">Here</a> is the code for how Polars deals with <code>Join</code> during <code>push_down</code>. <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L407">For each predicate</a>, Polars checks <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L448">if it can be pushed down to the left subtree</a> or the <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L460">right subtree</a>. <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L478">If neither, it is pushed to the local_predicates</a>. In that case, the local predicates are <a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-lazy/polars-plan/src/logical_plan/optimizer/predicate_pushdown/mod.rs#L40">wrapped around a Selection logical plan</a> instead of being pushed down.</p>
+<h3 id="pushdown-boundaries"><a class="header" href="#pushdown-boundaries">Pushdown Boundaries</a></h3>
+<p>The algorithm described above mishandles some edge cases. There are scenarios where pushing down predicates is not allowed. In those cases, we need to apply the predicates locally.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let df = df![
+    &quot;vals&quot; =&gt; [1, 2, 3, 4, 5]
+]
+.unwrap();
+
+let lazy_df = df
+  .lazy()
+  .filter(col(&quot;vals&quot;).gt(lit(1)))
+  // should be &gt; 2
+  // if optimizer would combine predicates this would be flawed
+  .filter(col(&quot;vals&quot;).gt(col(&quot;vals&quot;).min()));
+<span class="boring">}</span></code></pre></pre>
+<p>This example is borrowed from one of the unit tests in Polars. In this example, we first filter out elements that are ≤ to 1. Then we filter out elements that are ≤ to the minimum of the remaining elements, which is <code>2</code>. The result from this would be:</p>
+<p>If we combined the two predicates, we would get the following filter operation</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>.filter(
+	col(&quot;vals&quot;).gt(lit(1))
+		.and(
+			col(&quot;vals&quot;).gt(col(&quot;vals&quot;).min())
+		)
+);
+<span class="boring">}</span></code></pre></pre>
+<p>This would yield the wrong answer because <code>2</code> would be in the final output whereas it wouldn’t before the predicates are combined. This is because the first predicate affects the elements that are available to the <code>min()</code> operation.</p>
+<p>In general, predicates should not be projected downwards if it influences the results of other columns.</p>
+<p>In this example, the logical plan is:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>FILTER [(col(&quot;vals&quot;)) &gt; (col(&quot;vals&quot;).min())]
+	FROM FILTER [(col(&quot;vals&quot;)) &gt; (1)]
+		FROM DF [&quot;vals&quot;]; PROJECT */1 COLUMNS; SELECTION: &quot;None&quot;
+<span class="boring">}</span></code></pre></pre>
+<p>The optimized plan is:</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="projection-pushdown"><a class="header" href="#projection-pushdown">Projection Pushdown</a></h1>
 
                     </main>
