@@ -150,7 +150,9 @@
 <img src="./assets/benchmark.png" width="80%">
 <p>In this blog, I will provide detailed explanations of how Polars implements Join, Groupby, Filter, and more.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="what-is-polars"><a class="header" href="#what-is-polars">What is Polars?</a></h1>
+<p>TODO: Explain what Polars is</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="what-is-arrow"><a class="header" href="#what-is-arrow">What is Arrow?</a></h1>
+<p>TODO: Explain what Arrow is</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="chunkedarray"><a class="header" href="#chunkedarray">ChunkedArray</a></h1>
 <p><a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/chunked_array/mod.rs#L148">ChunkedArray</a> is the primitive array type in Polars. Each column in a DataFrame (a table) is basically a <code>ChunkedArray</code>.</p>
 <p>You can create a ChunkedArray like this:</p>
@@ -275,7 +277,7 @@ validity.extend_constant(null_count, false);
 <span class="boring">}</span></code></pre></pre>
 <p>Now that we know what a dataframe is, let’s look at how <code>Join</code> and <code>Groupby</code> are implemented.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="join"><a class="header" href="#join">Join</a></h1>
-<p>Polars uses a lock-free parallel hash join algorithm. The technique Polars uses is similar to the hash join algorithm presented in <a href="https://www.cockroachlabs.com/blog/vectorized-hash-joiner/">this CockroachDB blog</a>.</p>
+<p>Polars uses a lock-free parallel hash join algorithm. The technique that Polars uses is similar to the hash join algorithm presented in <a href="https://www.cockroachlabs.com/blog/vectorized-hash-joiner/">this CockroachDB blog</a>.</p>
 <h3 id="hash-join-refresher"><a class="header" href="#hash-join-refresher">Hash Join Refresher</a></h3>
 <p>The hash join algorithm consists of the following steps:</p>
 <ul>
@@ -707,6 +709,7 @@ let lazy_df = df
 <span class="boring">}</span></code></pre></pre>
 <p>The optimized plan is:</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="projection-pushdown"><a class="header" href="#projection-pushdown">Projection Pushdown</a></h1>
+<p>TODO</p>
 
                     </main>
 
