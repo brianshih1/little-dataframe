@@ -1,6 +1,6 @@
 # Join
 
-Polars uses a lock-free parallel hash join algorithm. The technique Polars uses is similar to the hash join algorithm presented in [this CockroachDB blog](https://www.cockroachlabs.com/blog/vectorized-hash-joiner/).
+Polars uses a lock-free parallel hash join algorithm. The technique that Polars uses is similar to the hash join algorithm presented in [this CockroachDB blog](https://www.cockroachlabs.com/blog/vectorized-hash-joiner/).
 
 ### Hash Join Refresher
 
