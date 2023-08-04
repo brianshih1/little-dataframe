@@ -2,7 +2,6 @@
 
 [Motivation](./motivation.md)
 [Quick Introduction to Polars](./polars_intro.md)
-[What is Arrow?](./arrow_intro.md)
 
 ---
 
@@ -12,7 +11,7 @@
 
   - [Filter](./chunked_array/filter.md)
   - [Sort](./chunked_array/sort.md)
-  - [Aggregate](./chunked_array/aggregate.md)
+  - [TODO: Aggregate]()
 
 - [Dataframe](./dataframe/intro.md)
 
@@ -21,4 +20,4 @@
 
 - [LazyFrame](./lazyframe/intro.md)
   - [Predicate Pushdown](./lazyframe/predicate_pushdown.md)
-  - [Projection Pushdown](./lazyframe/projection_pushdown.md)
+  - [TODO: Predicate Pushdown]()
