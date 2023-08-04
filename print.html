@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="motivation.html">Motivation</a></li><li class="chapter-item expanded affix "><a href="polars_intro.html">Quick Introduction to Polars</a></li><li class="chapter-item expanded affix "><a href="arrow_intro.html">What is Arrow?</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Deep Dive Into Polars</li><li class="chapter-item expanded "><a href="chunked_array/intro.html"><strong aria-hidden="true">1.</strong> ChunkedArray</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="chunked_array/filter.html"><strong aria-hidden="true">1.1.</strong> Filter</a></li><li class="chapter-item expanded "><a href="chunked_array/sort.html"><strong aria-hidden="true">1.2.</strong> Sort</a></li><li class="chapter-item expanded "><a href="chunked_array/aggregate.html"><strong aria-hidden="true">1.3.</strong> Aggregate</a></li></ol></li><li class="chapter-item expanded "><a href="dataframe/intro.html"><strong aria-hidden="true">2.</strong> Dataframe</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="dataframe/join.html"><strong aria-hidden="true">2.1.</strong> Join</a></li><li class="chapter-item expanded "><a href="dataframe/groupby.html"><strong aria-hidden="true">2.2.</strong> Groupby</a></li></ol></li><li class="chapter-item expanded "><a href="lazyframe/intro.html"><strong aria-hidden="true">3.</strong> LazyFrame</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="lazyframe/predicate_pushdown.html"><strong aria-hidden="true">3.1.</strong> Predicate Pushdown</a></li><li class="chapter-item expanded "><a href="lazyframe/projection_pushdown.html"><strong aria-hidden="true">3.2.</strong> Projection Pushdown</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="motivation.html">Motivation</a></li><li class="chapter-item expanded affix "><a href="polars_intro.html">Quick Introduction to Polars</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Deep Dive Into Polars</li><li class="chapter-item expanded "><a href="chunked_array/intro.html"><strong aria-hidden="true">1.</strong> ChunkedArray</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="chunked_array/filter.html"><strong aria-hidden="true">1.1.</strong> Filter</a></li><li class="chapter-item expanded "><a href="chunked_array/sort.html"><strong aria-hidden="true">1.2.</strong> Sort</a></li><li class="chapter-item expanded "><div><strong aria-hidden="true">1.3.</strong> TODO: Aggregate</div></li></ol></li><li class="chapter-item expanded "><a href="dataframe/intro.html"><strong aria-hidden="true">2.</strong> Dataframe</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="dataframe/join.html"><strong aria-hidden="true">2.1.</strong> Join</a></li><li class="chapter-item expanded "><a href="dataframe/groupby.html"><strong aria-hidden="true">2.2.</strong> Groupby</a></li></ol></li><li class="chapter-item expanded "><a href="lazyframe/intro.html"><strong aria-hidden="true">3.</strong> LazyFrame</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="lazyframe/predicate_pushdown.html"><strong aria-hidden="true">3.1.</strong> Predicate Pushdown</a></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.2.</strong> TODO: Predicate Pushdown</div></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -144,15 +144,44 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="motivation"><a class="header" href="#motivation">Motivation</a></h1>
-<p>I recently spent a lot of time exploring the internals of <a href="https://github.com/pola-rs/polars">Polars</a>, the lightning-fast DataFrame library built on top of <a href="https://github.com/jorgecarleitao/arrow2">Arrow2</a>. I also built my own toy DataFrame library (<a href="https://github.com/brianshih1/mini-dataframe">full source code available</a>) to make sure I understand the material better. I reused the same abstractions/APIs and reimplemented many algorithms used in Polars.</p>
-<p>It all started when I came across a <a href="https://www.ritchievink.com/blog/2021/02/28/i-wrote-one-of-the-fastest-dataframe-libraries/">blog post</a> by Ritchie Vink, the creator of Polars, titled &quot;I wrote one of the fastest DataFrame libraries.&quot; The post highlighted Polars' impressive performance in benchmarks. I was inspired and wanted to see for myself what makes the library so fast.</p>
+<p>I recently spent some time exploring the internals of <a href="https://github.com/pola-rs/polars">Polars</a>, the lightning-fast DataFrame library built on top of <a href="https://github.com/jorgecarleitao/arrow2">Arrow2</a>. To make sure I grasp the material better, I reimplemented a subset of Polars (with some code respectfully copied) in the form of a toy Dataframe library that only supports 3 data types. The full source code is <a href="https://github.com/brianshih1/mini-dataframe">available on github</a>. </p>
+<p>It all began when I stumbled across an amazing <a href="https://www.ritchievink.com/blog/2021/02/28/i-wrote-one-of-the-fastest-dataframe-libraries/">blog post</a> written by Ritchie Vink, the creator of Polars, titled &quot;I wrote one of the fastest DataFrame libraries.&quot; The post highlighted Polars' impressive performance in benchmarks. I was inspired and wanted to understand the secret behind its stellar performance.</p>
 <p>Here are some screenshots from the <a href="https://duckdb.org/2023/04/14/h2oai.html#results">recent h20.ai benchmark</a> for groupby queries conducted by DuckDB to showcase how fast Polars is.</p>
 <img src="./assets/benchmark.png" width="80%">
 <p>In this blog, I will provide detailed explanations of how Polars implements Join, Groupby, Filter, and more.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="what-is-polars"><a class="header" href="#what-is-polars">What is Polars?</a></h1>
-<p>TODO: Explain what Polars is</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="what-is-arrow"><a class="header" href="#what-is-arrow">What is Arrow?</a></h1>
-<p>TODO: Explain what Arrow is</p>
+<p>Before we go into the implementation details of Polars, let’s quickly look at what Polars is.</p>
+<p>Polars is a super fast DataFrame library for Rust and Python. It exposes a set of query APIs that are similar to Pandas.</p>
+<p>For example, here is an example provided by Polars to load a parquet file, and perform operations such as <code>groupby</code>, <code>agg</code> and <code>join</code>:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let lf1 = LazyFrame::scan_parquet(&quot;myfile_1.parquet&quot;, Default::default())?
+    .groupby([col(&quot;ham&quot;)])
+    .agg([
+        // expressions can be combined into powerful aggregations
+        col(&quot;foo&quot;)
+            .sort_by([col(&quot;ham&quot;).rank(Default::default(), None)], [false])
+            .last()
+            .alias(&quot;last_foo_ranked_by_ham&quot;),
+        // every expression runs in parallel
+        col(&quot;foo&quot;).cummin(false).alias(&quot;cumulative_min_per_group&quot;),
+        // every expression runs in parallel
+        col(&quot;foo&quot;).reverse().implode().alias(&quot;reverse_group&quot;),
+    ]);
+
+let lf2 = LazyFrame::scan_parquet(&quot;myfile_2.parquet&quot;, Default::default())?
+    .select([col(&quot;ham&quot;), col(&quot;spam&quot;)]);
+
+let df = lf1
+    .join(lf2, [col(&quot;reverse&quot;)], [col(&quot;foo&quot;)], JoinArgs::new(JoinType::Left))
+    // now we finally materialize the result.
+    .collect()?;
+<span class="boring">}</span></code></pre></pre>
+<p>Polars uses <a href="https://arrow.apache.org/">Apache Arrow</a> as its Memory Model. Polars also uses techniques such as SIMD instructions, parallelization, query optimization, and many other techniques to have a lightning-fast performance.</p>
+<h3 id="apache-arrow"><a class="header" href="#apache-arrow">Apache Arrow</a></h3>
+<p>The best way to understand Apache Arrow is to check out its <a href="https://arrow.apache.org/">official documentation</a>. To summarize, it is an in-memory columnar format for representing tabular data.</p>
+<p>The columnar format is beneficial for computations because it enables vectorization using SIMD (Single Instruction, Multiple Data). Apache Arrow also provides zero-copy reads which makes copying data around cheap.</p>
+<p>I personally haven’t had the time to dig into the details of the Apache Arrow design but I definitely plan to one day!</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="chunkedarray"><a class="header" href="#chunkedarray">ChunkedArray</a></h1>
 <p><a href="https://github.com/pola-rs/polars/blob/5ee93f42cc058c8c2ab6b20876ffc5f39e23b665/polars/polars-core/src/chunked_array/mod.rs#L148">ChunkedArray</a> is the primitive array type in Polars. Each column in a DataFrame (a table) is basically a <code>ChunkedArray</code>.</p>
 <p>You can create a ChunkedArray like this:</p>
@@ -249,7 +278,6 @@ validity.extend_constant(len - null_count, true);
 validity.extend_constant(null_count, false);
 <span class="boring">}</span></code></pre></pre>
 <p>In Ritchie’s <a href="https://www.ritchievink.com/blog/2021/02/28/i-wrote-one-of-the-fastest-dataframe-libraries/">blog</a>, he points out that by storing the validity bitmap separately from the buffer (raw value), it is easy to write branchless code by ignoring the null buffer during the operation. Then when the operation is finished, the null bit buffer is just copied to the new array. The sort algorithm is a perfect example of what Ritchie meant.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="aggregate"><a class="header" href="#aggregate">Aggregate</a></h1>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="dataframe"><a class="header" href="#dataframe">Dataframe</a></h1>
 <p>A <a href="https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/index.html">DataFrame</a> is a two-dimensional data structure that holds tabular data. Operations that can be executed on DataFrame are similar to what SQL queries do on tables. You can perform joins, groupby, and more queries.</p>
 <p>A dataframe is composed of a collection of <code>Series</code> of the same length.</p>
@@ -708,8 +736,6 @@ let lazy_df = df
 		FROM DF [&quot;vals&quot;]; PROJECT */1 COLUMNS; SELECTION: &quot;None&quot;
 <span class="boring">}</span></code></pre></pre>
 <p>The optimized plan is:</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="projection-pushdown"><a class="header" href="#projection-pushdown">Projection Pushdown</a></h1>
-<p>TODO</p>
 
                     </main>
 
